@@ -22,14 +22,14 @@ app.use(async (req, res, next) => {
 
 const ALLOWED_ORIGINS = [
   process.env.CLIENT_ORIGIN,
-  // Vercel sets VERCEL_URL automatically (e.g. "order-tracker-rouge.vercel.app")
-  process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
   'http://localhost:5173',
 ].filter(Boolean);
 
 app.use(
   cors({
     origin: (origin, cb) => {
+      // Na Vercel frontend i backend są na tym samym domenie — przepuszczamy wszystko
+      if (process.env.VERCEL) return cb(null, true);
       if (!origin || ALLOWED_ORIGINS.some((o) => origin.startsWith(o))) {
         cb(null, true);
       } else {
