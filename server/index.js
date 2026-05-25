@@ -22,6 +22,8 @@ app.use(async (req, res, next) => {
 
 const ALLOWED_ORIGINS = [
   process.env.CLIENT_ORIGIN,
+  // Vercel sets VERCEL_URL automatically (e.g. "order-tracker-rouge.vercel.app")
+  process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
   'http://localhost:5173',
 ].filter(Boolean);
 
