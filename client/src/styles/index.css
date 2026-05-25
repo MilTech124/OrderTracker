@@ -1,0 +1,68 @@
+@import 'leaflet/dist/leaflet.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: #f8fafc;
+  color: #0f172a;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Minimalne rozmiary dotyku (WCAG) */
+button, select, input[type="checkbox"] {
+  min-height: 36px;
+}
+
+/* Zapobiegaj auto-zoom na iOS przy focus na input */
+@media (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+.leaflet-container {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 300px;
+  z-index: 0;
+}
+
+/* Poprawka: cluster ikony nie dziedziczą błędnych stylów */
+.leaflet-marker-icon {
+  background: none !important;
+  border: none !important;
+}
+
+.btn {
+  @apply inline-flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-colors;
+}
+.btn-primary {
+  @apply bg-brand-600 text-white hover:bg-brand-700;
+}
+.btn-secondary {
+  @apply bg-slate-200 text-slate-800 hover:bg-slate-300;
+}
+.btn-danger {
+  @apply bg-red-600 text-white hover:bg-red-700;
+}
+.input {
+  @apply w-full px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent;
+}
+.label {
+  @apply block text-sm font-medium text-slate-700 mb-1;
+}
+.card {
+  @apply bg-white rounded-lg shadow-sm border border-slate-200;
+}
+.badge {
+  @apply inline-block px-2 py-0.5 text-xs font-semibold rounded-full;
+}
+.badge-nowe { @apply bg-blue-100 text-blue-800; }
+.badge-w_trasie { @apply bg-yellow-100 text-yellow-800; }
+.badge-dostarczone { @apply bg-green-100 text-green-800; }
+.badge-anulowane { @apply bg-slate-200 text-slate-600; }
