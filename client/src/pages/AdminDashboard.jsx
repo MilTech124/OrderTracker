@@ -13,6 +13,8 @@ export default function AdminDashboard() {
   const [filterUser, setFilterUser] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterDate, setFilterDate] = useState('');
+  const [filterCity, setFilterCity] = useState('');
+  const [filterName, setFilterName] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [showNewForm, setShowNewForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -25,6 +27,8 @@ export default function AdminDashboard() {
       if (filterUser) params.userId = filterUser;
       if (filterStatus) params.status = filterStatus;
       if (filterDate) params.date = filterDate;
+      if (filterCity) params.city = filterCity;
+      if (filterName) params.name = filterName;
       const [oRes, uRes] = await Promise.all([
         api.get('/orders', { params }),
         users.length ? Promise.resolve({ data: users }) : api.get('/users'),
@@ -36,7 +40,7 @@ export default function AdminDashboard() {
     }
   }
 
-  useEffect(() => { load(); }, [filterUser, filterStatus, filterDate]);
+  useEffect(() => { load(); }, [filterUser, filterStatus, filterDate, filterCity, filterName]);
 
   const userById = useMemo(() => {
     const m = {};
@@ -44,7 +48,7 @@ export default function AdminDashboard() {
     return m;
   }, [users]);
 
-  const activeFilters = [filterUser, filterStatus, filterDate].filter(Boolean).length;
+  const activeFilters = [filterUser, filterStatus, filterDate, filterCity, filterName].filter(Boolean).length;
 
   async function handleDelete(order) {
     if (!confirm(`Usunąć zamówienie „${order.title}"?`)) return;
@@ -99,7 +103,7 @@ export default function AdminDashboard() {
 
       {/* ── Filtry (zwijane na mobile) ── */}
       {showFilters && (
-        <div className="card p-3 mb-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="card p-3 mb-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
           <div>
             <label className="label">Użytkownik</label>
             <select className="input" value={filterUser} onChange={(e) => setFilterUser(e.target.value)}>
@@ -122,10 +126,30 @@ export default function AdminDashboard() {
             <label className="label">Data dostawy</label>
             <input type="date" className="input" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} />
           </div>
+          <div>
+            <label className="label">Miejscowość</label>
+            <input
+              type="text"
+              className="input"
+              placeholder="np. Warszawa"
+              value={filterCity}
+              onChange={(e) => setFilterCity(e.target.value)}
+            />
+          </div>
+          <div className="col-span-1 sm:col-span-2">
+            <label className="label">Imię lub nazwisko</label>
+            <input
+              type="text"
+              className="input"
+              placeholder="np. Kowalski"
+              value={filterName}
+              onChange={(e) => setFilterName(e.target.value)}
+            />
+          </div>
           {activeFilters > 0 && (
-            <div className="sm:col-span-3">
+            <div className="col-span-2 sm:col-span-3">
               <button
-                onClick={() => { setFilterUser(''); setFilterStatus(''); setFilterDate(''); }}
+                onClick={() => { setFilterUser(''); setFilterStatus(''); setFilterDate(''); setFilterCity(''); setFilterName(''); }}
                 className="text-xs text-red-600 hover:underline"
               >
                 Wyczyść filtry

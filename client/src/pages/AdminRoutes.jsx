@@ -15,7 +15,8 @@ export default function AdminRoutes() {
 
   const [filterUser, setFilterUser] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
-  const [filterDate, setFilterDate] = useState('');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
 
   const [selectedIds, setSelectedIds] = useState([]);
   const [stopsOrder, setStopsOrder] = useState([]);
@@ -27,7 +28,8 @@ export default function AdminRoutes() {
       const params = {};
       if (filterUser) params.userId = filterUser;
       if (filterStatus) params.status = filterStatus;
-      if (filterDate) params.date = filterDate;
+      if (filterDateFrom) params.dateFrom = filterDateFrom;
+      if (filterDateTo) params.dateTo = filterDateTo;
       const { data } = await api.get('/orders', { params });
       setOrders(data);
     } finally {
@@ -41,7 +43,7 @@ export default function AdminRoutes() {
   }
 
   useEffect(() => { loadUsers(); }, []);
-  useEffect(() => { loadOrders(); }, [filterUser, filterStatus, filterDate]);
+  useEffect(() => { loadOrders(); }, [filterUser, filterStatus, filterDateFrom, filterDateTo]);
 
   function toggleSelect(orderId) {
     const isSelected = selectedIds.includes(orderId);
@@ -172,7 +174,7 @@ export default function AdminRoutes() {
       </div>
 
       {/* Filtry */}
-      <div className="card p-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="card p-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div>
           <label className="label">Użytkownik</label>
           <select className="input" value={filterUser} onChange={(e) => setFilterUser(e.target.value)}>
@@ -192,9 +194,23 @@ export default function AdminRoutes() {
           </select>
         </div>
         <div>
-          <label className="label">Data dostawy</label>
-          <input type="date" className="input" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} />
+          <label className="label">Data dostawy od</label>
+          <input type="date" className="input" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} />
         </div>
+        <div>
+          <label className="label">Data dostawy do</label>
+          <input type="date" className="input" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} />
+        </div>
+        {(filterUser || filterStatus || filterDateFrom || filterDateTo) && (
+          <div className="col-span-2 sm:col-span-4">
+            <button
+              onClick={() => { setFilterUser(''); setFilterStatus(''); setFilterDateFrom(''); setFilterDateTo(''); }}
+              className="text-xs text-red-600 hover:underline"
+            >
+              Wyczyść filtry
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── Mobile: zakładki ── */}

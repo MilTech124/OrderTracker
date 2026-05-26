@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Plus, List, Map } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Plus, List, Map, SlidersHorizontal } from 'lucide-react';
 import { api } from '../lib/api.js';
 import OrdersMap from '../components/Map/OrdersMap.jsx';
 import OrderForm from '../components/Orders/OrderForm.jsx';
@@ -11,6 +11,9 @@ export default function UserDashboard() {
   const [showNewForm, setShowNewForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [mobileTab, setMobileTab] = useState('list'); // 'list' | 'map'
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterCity, setFilterCity] = useState('');
+  const [filterName, setFilterName] = useState('');
 
   async function load() {
     setLoading(true);
@@ -23,6 +26,22 @@ export default function UserDashboard() {
   }
 
   useEffect(() => { load(); }, []);
+
+  // Filtrowanie client-side
+  const filteredOrders = useMemo(() => {
+    let list = orders;
+    if (filterCity.trim()) {
+      const rx = new RegExp(filterCity.trim(), 'i');
+      list = list.filter((o) => rx.test(o.city || ''));
+    }
+    if (filterName.trim()) {
+      const rx = new RegExp(filterName.trim(), 'i');
+      list = list.filter((o) => rx.test(o.firstName || '') || rx.test(o.lastName || ''));
+    }
+    return list;
+  }, [orders, filterCity, filterName]);
+
+  const activeFilters = [filterCity, filterName].filter(Boolean).length;
 
   async function handleDelete(order) {
     if (!confirm(`Usunąć zamówienie „${order.title}"?`)) return;
@@ -50,15 +69,65 @@ export default function UserDashboard() {
     <div className="max-w-7xl mx-auto p-3 md:p-4">
 
       {/* ── Nagłówek ── */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3 gap-2">
         <h1 className="text-xl md:text-2xl font-bold">Moje zamówienia</h1>
-        <button
-          onClick={() => { setShowNewForm(true); setEditingId(null); }}
-          className="btn btn-primary text-sm"
-        >
-          <Plus size={16} /> <span className="hidden sm:inline">Nowe zamówienie</span><span className="sm:hidden">Nowe</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowFilters((v) => !v)}
+            className={`btn text-sm py-2 px-3 relative ${activeFilters > 0 ? 'btn-primary' : 'btn-secondary'}`}
+          >
+            <SlidersHorizontal size={15} />
+            <span className="hidden sm:inline">Filtry</span>
+            {activeFilters > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center">
+                {activeFilters}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => { setShowNewForm(true); setEditingId(null); }}
+            className="btn btn-primary text-sm"
+          >
+            <Plus size={16} /> <span className="hidden sm:inline">Nowe zamówienie</span><span className="sm:hidden">Nowe</span>
+          </button>
+        </div>
       </div>
+
+      {/* ── Filtry ── */}
+      {showFilters && (
+        <div className="card p-3 mb-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="label">Miejscowość</label>
+            <input
+              type="text"
+              className="input"
+              placeholder="np. Warszawa"
+              value={filterCity}
+              onChange={(e) => setFilterCity(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="label">Imię lub nazwisko</label>
+            <input
+              type="text"
+              className="input"
+              placeholder="np. Kowalski"
+              value={filterName}
+              onChange={(e) => setFilterName(e.target.value)}
+            />
+          </div>
+          {activeFilters > 0 && (
+            <div className="sm:col-span-2">
+              <button
+                onClick={() => { setFilterCity(''); setFilterName(''); }}
+                className="text-xs text-red-600 hover:underline"
+              >
+                Wyczyść filtry
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Przełącznik Lista/Mapa (tylko mobile) ── */}
       <div className="flex md:hidden mb-3 rounded-lg overflow-hidden border border-slate-200">
@@ -68,7 +137,7 @@ export default function UserDashboard() {
             mobileTab === 'list' ? 'bg-brand-600 text-white' : 'bg-white text-slate-600'
           }`}
         >
-          <List size={16} /> Lista
+          <List size={16} /> Lista ({filteredOrders.length})
         </button>
         <button
           onClick={() => setMobileTab('map')}
@@ -76,7 +145,7 @@ export default function UserDashboard() {
             mobileTab === 'map' ? 'bg-brand-600 text-white' : 'bg-white text-slate-600'
           }`}
         >
-          <Map size={16} /> Mapa {orders.filter(o => o.lat).length > 0 && `(${orders.filter(o => o.lat).length})`}
+          <Map size={16} /> Mapa {filteredOrders.filter(o => o.lat).length > 0 && `(${filteredOrders.filter(o => o.lat).length})`}
         </button>
       </div>
 
@@ -96,13 +165,12 @@ export default function UserDashboard() {
 
           {loading ? (
             <p className="text-slate-500 text-sm py-4 text-center">Ładowanie…</p>
-          ) : orders.length === 0 ? (
+          ) : filteredOrders.length === 0 ? (
             <div className="card p-8 text-center text-slate-400">
-              <Package size={40} className="mx-auto mb-2 opacity-40" />
-              <p>Brak zamówień. Dodaj pierwsze.</p>
+              <p>{orders.length === 0 ? 'Brak zamówień. Dodaj pierwsze.' : 'Brak wyników dla wybranych filtrów.'}</p>
             </div>
           ) : (
-            orders.map((o) => (
+            filteredOrders.map((o) => (
               <div key={o.id}>
                 <OrderCard
                   order={o}
@@ -126,7 +194,7 @@ export default function UserDashboard() {
           className={`card overflow-hidden md:sticky md:top-16 ${mobileTab === 'list' ? 'hidden md:block' : ''}`}
           style={{ height: '75vh' }}
         >
-          <OrdersMap orders={orders} />
+          <OrdersMap orders={filteredOrders} />
         </div>
       </div>
     </div>

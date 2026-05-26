@@ -42,7 +42,20 @@ router.get('/', async (req, res, next) => {
       filter.userId = new mongoose.Types.ObjectId(req.query.userId);
     }
     if (req.query.status) filter.status = req.query.status;
-    if (req.query.date) {
+    if (req.query.city) filter.city = { $regex: req.query.city, $options: 'i' };
+    if (req.query.name) {
+      const rx = { $regex: req.query.name, $options: 'i' };
+      filter.$or = [{ firstName: rx }, { lastName: rx }];
+    }
+    if (req.query.dateFrom || req.query.dateTo) {
+      filter.deliveryDate = {};
+      if (req.query.dateFrom) filter.deliveryDate.$gte = new Date(req.query.dateFrom);
+      if (req.query.dateTo) {
+        const dt = new Date(req.query.dateTo);
+        dt.setDate(dt.getDate() + 1);
+        filter.deliveryDate.$lt = dt;
+      }
+    } else if (req.query.date) {
       const d = new Date(req.query.date);
       const next = new Date(d);
       next.setDate(d.getDate() + 1);
