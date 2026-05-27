@@ -1,10 +1,36 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, List, Map, Navigation, Check, ChevronRight } from 'lucide-react';
+import { AlertTriangle, List, Map, Navigation, Check, Share2, Copy, MessageCircle, ClipboardCheck } from 'lucide-react';
 import { api } from '../lib/api.js';
 import RouteMap from '../components/Map/RouteMap.jsx';
 import RouteStopsList from '../components/Route/RouteStopsList.jsx';
 import { buildRouteStages, formatAddress } from '../lib/googleMapsLink.js';
 import { STATUS_LABEL, STATUS_LIST } from '../lib/statusColors.js';
+
+// Buduje tekst wiadomości do wysłania kierowcy
+function buildShareText(stages, stops) {
+  const total = stops.length;
+  const multiStage = stages.length > 1;
+
+  let text = `🚚 Trasa dostawy — ${total} ${total === 1 ? 'przystanek' : total < 5 ? 'przystanki' : 'przystanków'}`;
+  if (multiStage) text += ` (${stages.length} etapy)`;
+  text += '\n\n';
+
+  stages.forEach((stage, idx) => {
+    if (multiStage) {
+      text += `📍 Etap ${idx + 1}/${stages.length} (przystanki ${stage.from}–${stage.to}):\n`;
+    }
+    stage.stops.forEach((stop, i) => {
+      const num = stage.from + i;
+      const name = [stop.firstName, stop.lastName].filter(Boolean).join(' ');
+      const addr = formatAddress(stop);
+      text += `${num}. ${name ? name + ' — ' : ''}${addr || stop.title}\n`;
+    });
+    text += `\n🗺️ Nawigacja:\n${stage.url}\n`;
+    if (idx < stages.length - 1) text += '\n';
+  });
+
+  return text.trim();
+}
 
 const TABS = ['orders', 'stops', 'map'];
 
@@ -113,6 +139,32 @@ export default function AdminRoutes() {
     openStage(next === -1 ? 0 : next);
   }
 
+  // ── Udostępnianie trasy ───────────────────────────────────────────────────
+  const [shareStatus, setShareStatus] = useState('idle'); // 'idle' | 'copied'
+
+  const shareText = useMemo(() => buildShareText(stages, stops), [stages, stops]);
+
+  async function handleShare() {
+    if (stops.length === 0) return;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Trasa dostawy', text: shareText });
+      } catch {
+        // użytkownik anulował — nic nie robimy
+      }
+    } else {
+      // Fallback: kopiuj do schowka
+      await navigator.clipboard.writeText(shareText);
+      setShareStatus('copied');
+      setTimeout(() => setShareStatus('idle'), 2500);
+    }
+  }
+
+  function handleWhatsApp() {
+    const url = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+    window.open(url, '_blank', 'noopener');
+  }
+
   // Panel zamówień
   const OrdersPanel = () => (
     <div className="card p-4">
@@ -156,18 +208,38 @@ export default function AdminRoutes() {
   // Panel trasy
   const StopsPanel = () => (
     <div className="card p-4">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
         <h2 className="font-semibold text-sm uppercase tracking-wide text-slate-500">
           Trasa ({stops.length} punktów)
         </h2>
-        {!isMultiStage && (
-          <button
-            onClick={openNextStage}
-            disabled={stops.length === 0}
-            className="btn btn-primary text-sm py-2 disabled:opacity-40"
-          >
-            <Navigation size={15} /> Prowadź
-          </button>
+        {stops.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={handleShare}
+              className="btn btn-secondary text-xs py-1.5 px-2.5"
+              title="Udostępnij trasę"
+            >
+              {shareStatus === 'copied'
+                ? <><ClipboardCheck size={13} className="text-emerald-600" /><span className="text-emerald-600">Skopiowano!</span></>
+                : <><Share2 size={13} /> Udostępnij</>
+              }
+            </button>
+            <button
+              onClick={handleWhatsApp}
+              className="btn text-xs py-1.5 px-2.5 bg-[#25D366] hover:bg-[#1ebe5d] text-white border-0"
+              title="WhatsApp"
+            >
+              <MessageCircle size={13} /> WA
+            </button>
+            {!isMultiStage && (
+              <button
+                onClick={openNextStage}
+                className="btn btn-primary text-xs py-1.5 px-2.5"
+              >
+                <Navigation size={13} /> Prowadź
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -242,18 +314,39 @@ export default function AdminRoutes() {
 
   return (
     <div className="max-w-7xl mx-auto p-3 md:p-4 space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <h1 className="text-xl md:text-2xl font-bold">Planowanie trasy</h1>
-        {/* Prowadź — widoczny zawsze na górze */}
         {stops.length > 0 && (
-          <button onClick={openNextStage} className="btn btn-primary text-sm">
-            <Navigation size={15} />
-            {isMultiStage ? (
-              <>Etap {(stages.findIndex((_, i) => !completedStages.includes(i)) + 1) || 1}/{stages.length}</>
-            ) : (
-              <>Prowadź ({stops.length})</>
-            )}
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Udostępnij */}
+            <button
+              onClick={handleShare}
+              className="btn btn-secondary text-sm py-2 px-3"
+              title="Udostępnij trasę"
+            >
+              {shareStatus === 'copied'
+                ? <><ClipboardCheck size={15} className="text-emerald-600" /> <span className="hidden sm:inline text-emerald-600">Skopiowano!</span></>
+                : <><Share2 size={15} /> <span className="hidden sm:inline">Udostępnij</span></>
+              }
+            </button>
+            {/* WhatsApp */}
+            <button
+              onClick={handleWhatsApp}
+              className="btn text-sm py-2 px-3 bg-[#25D366] hover:bg-[#1ebe5d] text-white border-0"
+              title="Wyślij przez WhatsApp"
+            >
+              <MessageCircle size={15} />
+              <span className="hidden sm:inline">WhatsApp</span>
+            </button>
+            {/* Prowadź */}
+            <button onClick={openNextStage} className="btn btn-primary text-sm">
+              <Navigation size={15} />
+              {isMultiStage
+                ? <>Etap {(stages.findIndex((_, i) => !completedStages.includes(i)) + 1) || 1}/{stages.length}</>
+                : <>Prowadź ({stops.length})</>
+              }
+            </button>
+          </div>
         )}
       </div>
 
