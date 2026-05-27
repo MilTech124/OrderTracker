@@ -26,23 +26,35 @@ function buildSingleUrl(stops) {
   return url;
 }
 
-// Zwraca tablicę linków (jeden lub więcej, jeśli przekroczony limit).
-export function buildRouteUrls(stops) {
+// Dzieli trasę na etapy (chunki) — każdy do MAX_STOPS_PER_LINK punktów,
+// kolejny etap zaczyna się od ostatniego punktu poprzedniego (łańcuch).
+// Zwraca: [{ url, stops: [...], from: <numer-przystanku-globalny>, to: <numer-przystanku-globalny> }]
+export function buildRouteStages(stops) {
   const valid = stops.filter((s) => formatAddress(s).trim().length > 0);
   if (valid.length === 0) return [];
 
   if (valid.length <= MAX_STOPS_PER_LINK) {
-    return [buildSingleUrl(valid)];
+    return [{ url: buildSingleUrl(valid), stops: valid, from: 1, to: valid.length }];
   }
 
-  // Chunkujemy: każdy następny chunk zaczyna się od ostatniego punktu poprzedniego.
-  const chunks = [];
+  const stages = [];
   let i = 0;
   while (i < valid.length) {
     const end = Math.min(i + MAX_STOPS_PER_LINK, valid.length);
-    chunks.push(valid.slice(i, end));
+    const chunk = valid.slice(i, end);
+    stages.push({
+      url: buildSingleUrl(chunk),
+      stops: chunk,
+      from: i + 1,
+      to: end,
+    });
     if (end === valid.length) break;
     i = end - 1; // przedłuż łańcuch
   }
-  return chunks.map(buildSingleUrl);
+  return stages;
+}
+
+// Zachowane dla wstecznej kompatybilności.
+export function buildRouteUrls(stops) {
+  return buildRouteStages(stops).map((s) => s.url);
 }

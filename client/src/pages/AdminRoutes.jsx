@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ExternalLink, AlertTriangle, List, Map, Navigation } from 'lucide-react';
+import { AlertTriangle, List, Map, Navigation, Check, ChevronRight } from 'lucide-react';
 import { api } from '../lib/api.js';
 import RouteMap from '../components/Map/RouteMap.jsx';
 import RouteStopsList from '../components/Route/RouteStopsList.jsx';
-import { buildRouteUrls, formatAddress } from '../lib/googleMapsLink.js';
+import { buildRouteStages, formatAddress } from '../lib/googleMapsLink.js';
 import { STATUS_LABEL, STATUS_LIST } from '../lib/statusColors.js';
 
 const TABS = ['orders', 'stops', 'map'];
@@ -76,13 +76,41 @@ export default function AdminRoutes() {
     [stopsOrder, orderById]
   );
 
-  const routeUrls = useMemo(() => buildRouteUrls(stops), [stops]);
-  const tooManyStops = stops.length > 10;
+  const stages = useMemo(() => buildRouteStages(stops), [stops]);
+  const isMultiStage = stages.length > 1;
 
-  function openRoute() {
-    routeUrls.forEach((url, idx) => {
-      setTimeout(() => window.open(url, '_blank', 'noopener'), idx * 200);
-    });
+  // Śledzenie ukończonych etapów (localStorage — przeżyje odświeżenie)
+  const [completedStages, setCompletedStages] = useState(() => {
+    try {
+      const raw = localStorage.getItem('routeCompletedStages');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('routeCompletedStages', JSON.stringify(completedStages));
+  }, [completedStages]);
+
+  // Reset ukończonych gdy zmieni się skład trasy
+  useEffect(() => {
+    setCompletedStages([]);
+  }, [stopsOrder.join(',')]);
+
+  function openStage(index) {
+    const stage = stages[index];
+    if (!stage) return;
+    window.open(stage.url, '_blank', 'noopener');
+    if (!completedStages.includes(index)) {
+      setCompletedStages([...completedStages, index]);
+    }
+  }
+
+  // Kliknięcie głównego "Prowadź" — otwiera pierwszy nieukończony etap (lub pierwszy)
+  function openNextStage() {
+    const next = stages.findIndex((_, i) => !completedStages.includes(i));
+    openStage(next === -1 ? 0 : next);
   }
 
   // Panel zamówień
@@ -132,19 +160,70 @@ export default function AdminRoutes() {
         <h2 className="font-semibold text-sm uppercase tracking-wide text-slate-500">
           Trasa ({stops.length} punktów)
         </h2>
-        <button
-          onClick={openRoute}
-          disabled={stops.length === 0}
-          className="btn btn-primary text-sm py-2 disabled:opacity-40"
-        >
-          <Navigation size={15} /> Prowadź
-        </button>
+        {!isMultiStage && (
+          <button
+            onClick={openNextStage}
+            disabled={stops.length === 0}
+            className="btn btn-primary text-sm py-2 disabled:opacity-40"
+          >
+            <Navigation size={15} /> Prowadź
+          </button>
+        )}
       </div>
 
-      {tooManyStops && (
-        <div className="flex items-start gap-2 p-2 bg-yellow-50 text-yellow-800 text-xs rounded mb-3 border border-yellow-200">
-          <AlertTriangle size={13} className="mt-0.5 shrink-0" />
-          <span>Ponad 10 punktów — trasa zostanie podzielona na {routeUrls.length} linków.</span>
+      {isMultiStage && (
+        <div className="mb-3 space-y-2">
+          <div className="flex items-start gap-2 p-2 bg-yellow-50 text-yellow-800 text-xs rounded border border-yellow-200">
+            <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+            <span>
+              Ponad 10 punktów — Google Maps obsługuje max 10 na link.
+              Trasę podzielono na <b>{stages.length} etapy</b>. Otwieraj je po kolei, gdy dojedziesz do końca poprzedniego.
+            </span>
+          </div>
+
+          <div className="space-y-1.5">
+            {stages.map((stage, idx) => {
+              const isDone = completedStages.includes(idx);
+              const isNext = !isDone && stages.findIndex((_, i) => !completedStages.includes(i)) === idx;
+              return (
+                <button
+                  key={idx}
+                  onClick={() => openStage(idx)}
+                  className={`w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${
+                    isNext
+                      ? 'bg-brand-600 text-white border-brand-600 hover:bg-brand-700'
+                      : isDone
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm shrink-0 ${
+                    isNext ? 'bg-white text-brand-700' : isDone ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {isDone ? <Check size={16} /> : idx + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm">
+                      Etap {idx + 1} z {stages.length}
+                      {isDone && <span className="ml-1.5 text-xs opacity-80">(otwarte)</span>}
+                    </p>
+                    <p className={`text-xs ${isNext ? 'text-white/80' : isDone ? 'text-emerald-700/80' : 'text-slate-500'}`}>
+                      Przystanki {stage.from}–{stage.to} ({stage.stops.length} punktów)
+                    </p>
+                  </div>
+                  <Navigation size={16} className="shrink-0" />
+                </button>
+              );
+            })}
+            {completedStages.length > 0 && (
+              <button
+                onClick={() => setCompletedStages([])}
+                className="text-xs text-slate-500 hover:underline pt-1"
+              >
+                Zresetuj postęp etapów
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -167,8 +246,13 @@ export default function AdminRoutes() {
         <h1 className="text-xl md:text-2xl font-bold">Planowanie trasy</h1>
         {/* Prowadź — widoczny zawsze na górze */}
         {stops.length > 0 && (
-          <button onClick={openRoute} className="btn btn-primary text-sm">
-            <Navigation size={15} /> Prowadź ({stops.length})
+          <button onClick={openNextStage} className="btn btn-primary text-sm">
+            <Navigation size={15} />
+            {isMultiStage ? (
+              <>Etap {(stages.findIndex((_, i) => !completedStages.includes(i)) + 1) || 1}/{stages.length}</>
+            ) : (
+              <>Prowadź ({stops.length})</>
+            )}
           </button>
         )}
       </div>
