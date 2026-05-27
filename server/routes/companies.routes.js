@@ -1,7 +1,8 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const Company = require('../models/Company');
 const User = require('../models/User');
-const Order = require('../models/Order');
+const { getOrderModel, clearModelCache } = require('../lib/getOrderModel');
 const { authRequired, requireMinRole } = require('../middleware/auth');
 
 const router = express.Router();
@@ -13,19 +14,22 @@ router.get('/', async (req, res, next) => {
     const companies = await Company.find({}).sort({ name: 1 });
     const ids = companies.map((c) => c._id);
 
-    const [userCounts, orderCounts] = await Promise.all([
-      User.aggregate([
-        { $match: { companyId: { $in: ids } } },
-        { $group: { _id: '$companyId', count: { $sum: 1 } } },
-      ]),
-      Order.aggregate([
-        { $match: { companyId: { $in: ids } } },
-        { $group: { _id: '$companyId', count: { $sum: 1 } } },
-      ]),
+    // Liczba userów per firma (z kolekcji users)
+    const userCounts = await User.aggregate([
+      { $match: { companyId: { $in: ids } } },
+      { $group: { _id: '$companyId', count: { $sum: 1 } } },
     ]);
-
     const uMap = Object.fromEntries(userCounts.map((r) => [r._id.toString(), r.count]));
-    const oMap = Object.fromEntries(orderCounts.map((r) => [r._id.toString(), r.count]));
+
+    // Liczba zamówień per firma — każda firma ma własną kolekcję
+    const orderCounts = await Promise.all(
+      companies.map(async (c) => {
+        const Model = await getOrderModel(c._id);
+        const count = await Model.countDocuments({});
+        return { id: c._id.toString(), count };
+      })
+    );
+    const oMap = Object.fromEntries(orderCounts.map((r) => [r.id, r.count]));
 
     res.json(companies.map((c) => ({
       id: c._id,
@@ -59,6 +63,8 @@ router.put('/:id', async (req, res, next) => {
     if (!name?.trim()) return res.status(400).json({ error: 'Nazwa firmy jest wymagana' });
     const company = await Company.findByIdAndUpdate(req.params.id, { name: name.trim() }, { new: true });
     if (!company) return res.status(404).json({ error: 'Nie znaleziono firmy' });
+    // Wyczyść cache — nowa nazwa = nowy slug = nowa kolekcja
+    clearModelCache(req.params.id);
     res.json({ id: company._id, name: company.name, createdAt: company.createdAt });
   } catch (err) {
     if (err.code === 11000) return res.status(409).json({ error: 'Firma o tej nazwie już istnieje' });
@@ -69,11 +75,26 @@ router.put('/:id', async (req, res, next) => {
 // DELETE /api/companies/:id
 router.delete('/:id', async (req, res, next) => {
   try {
-    const company = await Company.findByIdAndDelete(req.params.id);
+    const company = await Company.findById(req.params.id);
     if (!company) return res.status(404).json({ error: 'Nie znaleziono firmy' });
-    // Usuń powiązania userów i zamówień
+
+    // Pobierz model przed usunięciem firmy (potrzebujemy nazwy do kolekcji)
+    const OrderModel = await getOrderModel(req.params.id);
+
+    await Company.findByIdAndDelete(req.params.id);
     await User.updateMany({ companyId: req.params.id }, { companyId: null });
-    await Order.updateMany({ companyId: req.params.id }, { companyId: null });
+
+    // Usuń kolekcję zamówień tej firmy z MongoDB
+    try {
+      await OrderModel.collection.drop();
+    } catch (e) {
+      // Kolekcja może nie istnieć — ignoruj błąd
+      if (e.codeName !== 'NamespaceNotFound') console.warn('Nie można usunąć kolekcji:', e.message);
+    }
+
+    // Wyczyść cache modelu
+    clearModelCache(req.params.id);
+
     res.json({ ok: true });
   } catch (err) {
     next(err);
