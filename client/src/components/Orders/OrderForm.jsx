@@ -4,6 +4,7 @@ import { Loader2, CheckCircle, XCircle, MapPin, RefreshCw, Map } from 'lucide-re
 import { api } from '../../lib/api.js';
 import { geocodeAddress } from '../../lib/geocode.js';
 import { STATUS_LABEL, STATUS_LIST } from '../../lib/statusColors.js';
+import { COUNTRIES, DEFAULT_COUNTRY } from '../../lib/countries.js';
 import MapPicker from '../Map/MapPicker.jsx';
 
 // geo.status: 'idle' | 'checking' | 'found' | 'failed' | 'manual' | 'skipped'
@@ -18,8 +19,12 @@ export default function OrderForm({ initial, onSaved, onCancel }) {
   const isEdit = Boolean(initial?.id);
   const { register, handleSubmit, getValues, formState: { errors } } = useForm({
     defaultValues: initial
-      ? { ...initial, deliveryDate: initial.deliveryDate ? new Date(initial.deliveryDate).toISOString().slice(0, 10) : '' }
-      : { status: 'nowe' },
+      ? {
+          ...initial,
+          country: initial.country || DEFAULT_COUNTRY,
+          deliveryDate: initial.deliveryDate ? new Date(initial.deliveryDate).toISOString().slice(0, 10) : '',
+        }
+      : { status: 'nowe', country: DEFAULT_COUNTRY },
   });
 
   const [submitting, setSubmitting] = useState(false);
@@ -35,6 +40,7 @@ export default function OrderForm({ initial, onSaved, onCancel }) {
         address: values.address,
         city: values.city,
         postalCode: values.postalCode,
+        country: values.country || DEFAULT_COUNTRY,
       });
       setGeo({ status: 'found', coords: { lat: result.lat, lng: result.lng }, note: result.displayName });
       setShowMap(false);
@@ -229,6 +235,23 @@ export default function OrderForm({ initial, onSaved, onCancel }) {
         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1">
           <MapPin size={12} /> Adres dostawy
         </p>
+
+        <div>
+          <label className="label">Kraj</label>
+          <select
+            className="input"
+            {...register('country')}
+            onChange={(e) => {
+              // ręczne ustawienie aby zresetować geo (register już aktualizuje wartość)
+              register('country').onChange(e);
+              if (geo.status !== 'idle') setGeo({ status: 'idle', coords: geo.coords, note: '' });
+            }}
+          >
+            {COUNTRIES.map((c) => (
+              <option key={c.code} value={c.code}>{c.name}</option>
+            ))}
+          </select>
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>

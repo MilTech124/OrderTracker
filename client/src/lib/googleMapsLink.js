@@ -4,8 +4,11 @@
 
 const MAX_STOPS_PER_LINK = 10;
 
+import { countryName, DEFAULT_COUNTRY } from './countries.js';
+
 export function formatAddress(stop) {
-  const parts = [stop.address, stop.postalCode, stop.city].filter(Boolean);
+  const country = countryName(stop.country || DEFAULT_COUNTRY);
+  const parts = [stop.address, stop.postalCode, stop.city, country].filter(Boolean);
   return parts.join(', ');
 }
 

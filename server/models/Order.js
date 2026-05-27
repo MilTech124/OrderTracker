@@ -10,6 +10,7 @@ const orderSchema = new mongoose.Schema(
     postalCode: { type: String, default: '' },
     city: { type: String, default: '' },
     address: { type: String, default: '' },
+    country: { type: String, default: 'pl' }, // ISO 3166-1 alpha-2 (lowercase)
     deliveryDate: { type: Date },
     details: { type: String, default: '' },
     status: {
