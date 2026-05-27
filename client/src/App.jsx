@@ -8,6 +8,15 @@ import UserDashboard from './pages/UserDashboard.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import AdminRoutes from './pages/AdminRoutes.jsx';
 import AdminUsers from './pages/AdminUsers.jsx';
+import SuperAdminDashboard from './pages/SuperAdminDashboard.jsx';
+
+function HomeRedirect() {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role === 'superadmin') return <Navigate to="/superadmin" replace />;
+  if (user.role === 'admin') return <Navigate to="/admin" replace />;
+  return <UserDashboard />;
+}
 
 export default function App() {
   const { user } = useAuth();
@@ -20,19 +29,31 @@ export default function App() {
           <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
           <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register />} />
 
+          {/* Strona główna — przekierowanie wg roli */}
           <Route
             path="/"
             element={
               <ProtectedRoute>
-                {user?.role === 'admin' ? <Navigate to="/admin" replace /> : <UserDashboard />}
+                <HomeRedirect />
               </ProtectedRoute>
             }
           />
 
+          {/* Super Admin */}
+          <Route
+            path="/superadmin"
+            element={
+              <ProtectedRoute minRole="superadmin">
+                <SuperAdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Admin + Super Admin mogą wejść na /admin */}
           <Route
             path="/admin"
             element={
-              <ProtectedRoute role="admin">
+              <ProtectedRoute minRole="admin">
                 <AdminDashboard />
               </ProtectedRoute>
             }
@@ -40,7 +61,7 @@ export default function App() {
           <Route
             path="/admin/routes"
             element={
-              <ProtectedRoute role="admin">
+              <ProtectedRoute minRole="admin">
                 <AdminRoutes />
               </ProtectedRoute>
             }
@@ -48,7 +69,7 @@ export default function App() {
           <Route
             path="/admin/users"
             element={
-              <ProtectedRoute role="admin">
+              <ProtectedRoute minRole="admin">
                 <AdminUsers />
               </ProtectedRoute>
             }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { LogOut, Map, Package, Route, Users, Menu, X } from 'lucide-react';
+import { LogOut, Map, Package, Route, Users, Menu, X, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 
 export default function Navbar() {
@@ -21,6 +21,23 @@ export default function Navbar() {
 
   const linkClass = ({ isActive }) =>
     `flex items-center gap-2 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${isActive ? activeCls : idleCls}`;
+
+  const superadminLinks = (
+    <>
+      <NavLink to="/superadmin" className={linkClass} onClick={() => setOpen(false)}>
+        <ShieldCheck size={16} /> Super Admin
+      </NavLink>
+      <NavLink to="/admin" end className={linkClass} onClick={() => setOpen(false)}>
+        <Package size={16} /> Zamówienia
+      </NavLink>
+      <NavLink to="/admin/routes" className={linkClass} onClick={() => setOpen(false)}>
+        <Route size={16} /> Trasa
+      </NavLink>
+      <NavLink to="/admin/users" className={linkClass} onClick={() => setOpen(false)}>
+        <Users size={16} /> Użytkownicy
+      </NavLink>
+    </>
+  );
 
   const adminLinks = (
     <>
@@ -53,7 +70,7 @@ export default function Navbar() {
 
           {/* Desktop: linki nawigacji */}
           <div className="hidden md:flex items-center gap-1 flex-1">
-            {user.role === 'admin' ? adminLinks : userLinks}
+            {user.role === 'superadmin' ? superadminLinks : user.role === 'admin' ? adminLinks : userLinks}
           </div>
 
           {/* Desktop: email + wyloguj */}
@@ -80,7 +97,7 @@ export default function Navbar() {
         {/* ── Mobile: rozwijane menu ─────────────────────── */}
         {open && (
           <div className="md:hidden pb-3 space-y-1 border-t border-slate-100 pt-2">
-            {user.role === 'admin' ? adminLinks : userLinks}
+            {user.role === 'superadmin' ? superadminLinks : user.role === 'admin' ? adminLinks : userLinks}
 
             <div className="pt-2 border-t border-slate-100 mt-2 flex items-center justify-between">
               <span className="text-xs text-slate-500 truncate max-w-[200px]">

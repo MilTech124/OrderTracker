@@ -8,7 +8,14 @@ const router = express.Router();
 router.use(authRequired);
 
 function buildScopeFilter(req) {
-  return req.user.role === 'admin' ? {} : { userId: new mongoose.Types.ObjectId(req.user.id) };
+  if (req.user.role === 'superadmin') return {};
+  if (req.user.role === 'admin') {
+    return req.user.companyId
+      ? { companyId: new mongoose.Types.ObjectId(req.user.companyId) }
+      : { companyId: null };
+  }
+  // user: tylko własne zamówienia
+  return { userId: new mongoose.Types.ObjectId(req.user.id) };
 }
 
 function serializeOrder(o) {
@@ -17,6 +24,7 @@ function serializeOrder(o) {
   return {
     id: obj._id,
     userId: obj.userId,
+    companyId: obj.companyId || null,
     title: obj.title,
     firstName: obj.firstName,
     lastName: obj.lastName,
@@ -39,8 +47,11 @@ function serializeOrder(o) {
 router.get('/', async (req, res, next) => {
   try {
     const filter = buildScopeFilter(req);
-    if (req.user.role === 'admin' && req.query.userId) {
+    if (['admin', 'superadmin'].includes(req.user.role) && req.query.userId) {
       filter.userId = new mongoose.Types.ObjectId(req.query.userId);
+    }
+    if (req.user.role === 'superadmin' && req.query.companyId) {
+      filter.companyId = new mongoose.Types.ObjectId(req.query.companyId);
     }
     if (req.query.status) filter.status = req.query.status;
     if (req.query.city) filter.city = { $regex: req.query.city, $options: 'i' };
@@ -87,6 +98,7 @@ router.post('/', async (req, res, next) => {
     const hasCoords = typeof lat === 'number' && typeof lng === 'number' && isFinite(lat) && isFinite(lng);
     const doc = {
       userId: req.user.id,
+      companyId: req.user.companyId || null,
       title,
       firstName,
       lastName,

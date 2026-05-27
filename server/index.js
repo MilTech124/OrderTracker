@@ -5,6 +5,7 @@ const connectDB = require('./db');
 const authRoutes = require('./routes/auth.routes');
 const ordersRoutes = require('./routes/orders.routes');
 const usersRoutes = require('./routes/users.routes');
+const companiesRoutes = require('./routes/companies.routes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -47,6 +48,7 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/companies', companiesRoutes);
 
 app.use(errorHandler);
 

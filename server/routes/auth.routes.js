@@ -7,7 +7,12 @@ const router = express.Router();
 
 function signToken(user) {
   return jwt.sign(
-    { id: user._id.toString(), role: user.role, email: user.email },
+    {
+      id: user._id.toString(),
+      role: user.role,
+      email: user.email,
+      companyId: user.companyId ? user.companyId.toString() : null,
+    },
     process.env.JWT_SECRET,
     { expiresIn: '7d' }
   );
