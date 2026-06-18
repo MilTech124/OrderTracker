@@ -17,6 +17,7 @@ const orderSchema = new mongoose.Schema(
     country: { type: String, default: 'pl' },
     deliveryDate: { type: Date },
     details: { type: String, default: '' },
+    amount: { type: Number, default: null },
     status: {
       type: String,
       enum: ['nowe', 'w_trasie', 'dostarczone', 'anulowane'],

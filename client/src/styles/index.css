@@ -7,11 +7,24 @@
 html, body, #root {
   height: 100%;
   margin: 0;
-  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  background: #f8fafc;
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: #0f172a;
   -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
+
+/* Subtelne, nowoczesne tło z delikatnym gradientem */
+body {
+  background-color: #f6f7fb;
+  background-image:
+    radial-gradient(60rem 60rem at 110% -10%, rgba(99, 102, 241, 0.08), transparent 60%),
+    radial-gradient(50rem 50rem at -10% 0%, rgba(56, 189, 248, 0.07), transparent 55%);
+  background-attachment: fixed;
+}
+
+/* Cyfry tabelaryczne — równe kolumny liczb/dat */
+.tabular-nums { font-variant-numeric: tabular-nums; }
 
 /* Minimalne rozmiary dotyku (WCAG) */
 button, select, input[type="checkbox"] {
@@ -30,6 +43,7 @@ button, select, input[type="checkbox"] {
   height: 100% !important;
   min-height: 300px;
   z-index: 0;
+  font-family: inherit;
 }
 
 /* Poprawka: cluster ikony nie dziedziczą błędnych stylów */
@@ -38,31 +52,65 @@ button, select, input[type="checkbox"] {
   border: none !important;
 }
 
-.btn {
-  @apply inline-flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-colors;
+/* Zaokrąglone, lżejsze kontrolki mapy */
+.leaflet-control-zoom a,
+.leaflet-bar a {
+  border-radius: 8px !important;
+  color: #334155 !important;
 }
-.btn-primary {
-  @apply bg-brand-600 text-white hover:bg-brand-700;
+.leaflet-control-zoom {
+  border: none !important;
+  box-shadow: 0 4px 12px -4px rgba(15, 23, 42, 0.25) !important;
 }
-.btn-secondary {
-  @apply bg-slate-200 text-slate-800 hover:bg-slate-300;
+
+/* Na stronie trasy (fullscreen map) — przesuń zoom pod prawy panel */
+.route-page-map .leaflet-top.leaflet-right {
+  top: 52px;
+  right: 8px;
 }
-.btn-danger {
-  @apply bg-red-600 text-white hover:bg-red-700;
+.route-page-map .leaflet-top.leaflet-left {
+  top: 52px;
 }
-.input {
-  @apply w-full px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent;
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm
+           transition-all duration-150 select-none
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 focus-visible:ring-offset-2
+           active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-primary {
+    @apply bg-gradient-to-b from-brand-500 to-brand-600 text-white shadow-glow
+           hover:from-brand-600 hover:to-brand-700;
+  }
+  .btn-secondary {
+    @apply bg-white text-slate-700 border border-slate-200 shadow-soft
+           hover:bg-slate-50 hover:border-slate-300;
+  }
+  .btn-danger {
+    @apply bg-gradient-to-b from-red-500 to-red-600 text-white shadow-sm hover:from-red-600 hover:to-red-700;
+  }
+  .btn-ghost {
+    @apply bg-transparent text-slate-600 hover:bg-slate-100 shadow-none;
+  }
+
+  .input {
+    @apply w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900
+           placeholder:text-slate-400 shadow-soft transition-all
+           focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-400;
+  }
+  .label {
+    @apply block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5;
+  }
+  .card {
+    @apply bg-white rounded-2xl shadow-card border border-slate-200/70;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full ring-1 ring-inset;
+  }
+  .badge-nowe        { @apply bg-blue-50 text-blue-700 ring-blue-600/20; }
+  .badge-w_trasie    { @apply bg-amber-50 text-amber-700 ring-amber-600/20; }
+  .badge-dostarczone { @apply bg-emerald-50 text-emerald-700 ring-emerald-600/20; }
+  .badge-anulowane   { @apply bg-slate-100 text-slate-500 ring-slate-500/20; }
 }
-.label {
-  @apply block text-sm font-medium text-slate-700 mb-1;
-}
-.card {
-  @apply bg-white rounded-lg shadow-sm border border-slate-200;
-}
-.badge {
-  @apply inline-block px-2 py-0.5 text-xs font-semibold rounded-full;
-}
-.badge-nowe { @apply bg-blue-100 text-blue-800; }
-.badge-w_trasie { @apply bg-yellow-100 text-yellow-800; }
-.badge-dostarczone { @apply bg-green-100 text-green-800; }
-.badge-anulowane { @apply bg-slate-200 text-slate-600; }

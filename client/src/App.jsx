@@ -9,6 +9,7 @@ import AdminDashboard from './pages/AdminDashboard.jsx';
 import AdminRoutes from './pages/AdminRoutes.jsx';
 import AdminUsers from './pages/AdminUsers.jsx';
 import SuperAdminDashboard from './pages/SuperAdminDashboard.jsx';
+import Settings from './pages/Settings.jsx';
 
 function HomeRedirect() {
   const { user } = useAuth();
@@ -71,6 +72,16 @@ export default function App() {
             element={
               <ProtectedRoute minRole="admin">
                 <AdminUsers />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Ustawienia — dostępne dla każdego zalogowanego */}
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <Settings />
               </ProtectedRoute>
             }
           />

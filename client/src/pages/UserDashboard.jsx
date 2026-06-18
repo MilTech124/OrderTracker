@@ -4,8 +4,13 @@ import { api } from '../lib/api.js';
 import OrdersMap from '../components/Map/OrdersMap.jsx';
 import OrderForm from '../components/Orders/OrderForm.jsx';
 import OrderCard from '../components/Orders/OrderCard.jsx';
+import OrderStats from '../components/Orders/OrderStats.jsx';
+import ImportExport from '../components/Orders/ImportExport.jsx';
+import { useSettings } from '../context/SettingsContext.jsx';
+import { getUrgencyLevel, URGENCY_LABEL, URGENCY_LEVELS } from '../lib/urgency.js';
 
 export default function UserDashboard() {
+  const { settings } = useSettings();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showNewForm, setShowNewForm] = useState(false);
@@ -14,6 +19,7 @@ export default function UserDashboard() {
   const [showFilters, setShowFilters] = useState(false);
   const [filterCity, setFilterCity] = useState('');
   const [filterName, setFilterName] = useState('');
+  const [filterUrgency, setFilterUrgency] = useState('');
 
   async function load() {
     setLoading(true);
@@ -38,10 +44,13 @@ export default function UserDashboard() {
       const rx = new RegExp(filterName.trim(), 'i');
       list = list.filter((o) => rx.test(o.firstName || '') || rx.test(o.lastName || ''));
     }
+    if (filterUrgency) {
+      list = list.filter((o) => getUrgencyLevel(o.deliveryDate, settings.urgency) === filterUrgency);
+    }
     return list;
-  }, [orders, filterCity, filterName]);
+  }, [orders, filterCity, filterName, filterUrgency, settings.urgency]);
 
-  const activeFilters = [filterCity, filterName].filter(Boolean).length;
+  const activeFilters = [filterCity, filterName, filterUrgency].filter(Boolean).length;
 
   async function handleDelete(order) {
     if (!confirm(`Usunąć zamówienie „${order.title}"?`)) return;
@@ -69,8 +78,11 @@ export default function UserDashboard() {
     <div className="max-w-7xl mx-auto p-3 md:p-4">
 
       {/* ── Nagłówek ── */}
-      <div className="flex items-center justify-between mb-3 gap-2">
-        <h1 className="text-xl md:text-2xl font-bold">Moje zamówienia</h1>
+      <div className="flex items-center justify-between mb-4 gap-2">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">Moje zamówienia</h1>
+          <p className="text-sm text-slate-500 mt-0.5 hidden sm:block">Przeglądaj, filtruj i zarządzaj dostawami</p>
+        </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowFilters((v) => !v)}
@@ -84,6 +96,7 @@ export default function UserDashboard() {
               </span>
             )}
           </button>
+          <ImportExport orders={filteredOrders} onImported={load} />
           <button
             onClick={() => { setShowNewForm(true); setEditingId(null); }}
             className="btn btn-primary text-sm"
@@ -116,10 +129,19 @@ export default function UserDashboard() {
               onChange={(e) => setFilterName(e.target.value)}
             />
           </div>
+          <div>
+            <label className="label">Pilność</label>
+            <select className="input" value={filterUrgency} onChange={(e) => setFilterUrgency(e.target.value)}>
+              <option value="">Dowolna</option>
+              {URGENCY_LEVELS.map((u) => (
+                <option key={u} value={u}>{URGENCY_LABEL[u]}</option>
+              ))}
+            </select>
+          </div>
           {activeFilters > 0 && (
             <div className="sm:col-span-2">
               <button
-                onClick={() => { setFilterCity(''); setFilterName(''); }}
+                onClick={() => { setFilterCity(''); setFilterName(''); setFilterUrgency(''); }}
                 className="text-xs text-red-600 hover:underline"
               >
                 Wyczyść filtry
@@ -129,20 +151,23 @@ export default function UserDashboard() {
         </div>
       )}
 
+      {/* ── Statystyki ── */}
+      <OrderStats orders={filteredOrders} />
+
       {/* ── Przełącznik Lista/Mapa (tylko mobile) ── */}
-      <div className="flex md:hidden mb-3 rounded-lg overflow-hidden border border-slate-200">
+      <div className="flex md:hidden mb-3 p-1 gap-1 rounded-xl bg-slate-100 border border-slate-200/70">
         <button
           onClick={() => setMobileTab('list')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${
-            mobileTab === 'list' ? 'bg-brand-600 text-white' : 'bg-white text-slate-600'
+          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${
+            mobileTab === 'list' ? 'bg-white text-brand-700 shadow-soft' : 'text-slate-500'
           }`}
         >
           <List size={16} /> Lista ({filteredOrders.length})
         </button>
         <button
           onClick={() => setMobileTab('map')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${
-            mobileTab === 'map' ? 'bg-brand-600 text-white' : 'bg-white text-slate-600'
+          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${
+            mobileTab === 'map' ? 'bg-white text-brand-700 shadow-soft' : 'text-slate-500'
           }`}
         >
           <Map size={16} /> Mapa {filteredOrders.filter(o => o.lat).length > 0 && `(${filteredOrders.filter(o => o.lat).length})`}
@@ -164,10 +189,26 @@ export default function UserDashboard() {
           )}
 
           {loading ? (
-            <p className="text-slate-500 text-sm py-4 text-center">Ładowanie…</p>
+            <div className="space-y-3">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="card p-4 relative overflow-hidden">
+                  <div className="space-y-2.5">
+                    <div className="h-4 w-1/2 rounded-md bg-slate-100" />
+                    <div className="h-3 w-1/3 rounded-md bg-slate-100" />
+                    <div className="h-3 w-2/3 rounded-md bg-slate-100" />
+                  </div>
+                  <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/60 to-transparent" />
+                </div>
+              ))}
+            </div>
           ) : filteredOrders.length === 0 ? (
-            <div className="card p-8 text-center text-slate-400">
-              <p>{orders.length === 0 ? 'Brak zamówień. Dodaj pierwsze.' : 'Brak wyników dla wybranych filtrów.'}</p>
+            <div className="card p-10 text-center">
+              <div className="mx-auto mb-3 grid place-items-center w-14 h-14 rounded-2xl bg-brand-50 text-brand-500 ring-1 ring-inset ring-brand-600/10">
+                <Map size={24} />
+              </div>
+              <p className="text-slate-500 font-medium">
+                {orders.length === 0 ? 'Brak zamówień. Dodaj pierwsze.' : 'Brak wyników dla wybranych filtrów.'}
+              </p>
             </div>
           ) : (
             filteredOrders.map((o) => (

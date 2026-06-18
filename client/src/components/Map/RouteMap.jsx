@@ -1,8 +1,11 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { makeStatusIcon } from './OrdersMap.jsx';
+import MapLegend from './MapLegend.jsx';
 import { STATUS_COLOR, STATUS_LABEL } from '../../lib/statusColors.js';
+import { getUrgencyColor } from '../../lib/urgency.js';
+import { useSettings } from '../../context/SettingsContext.jsx';
 
 const POLAND_CENTER = [52.0693, 19.4803];
 
@@ -51,13 +54,23 @@ function MapController({ points }) {
   return null;
 }
 
-export default function RouteMap({ stops = [], backgroundOrders = [] }) {
-  const validStops = useMemo(() => stops.filter((s) => s.lat && s.lng), [stops]);
+export default function RouteMap({ stops = [], backgroundOrders = [], onAddStop, onRemoveStop }) {
+  const { settings } = useSettings();
+  const [colorMode, setColorMode] = useState(settings.colorMode);
+
+  useEffect(() => { setColorMode(settings.colorMode); }, [settings.colorMode]);
+
+  const bgColorFor = (o) =>
+    colorMode === 'urgency'
+      ? getUrgencyColor(o.deliveryDate, settings.urgency)
+      : STATUS_COLOR[o.status] || '#94a3b8';
+
+  const validStops = useMemo(() => stops.filter((s) => s.lat != null && s.lng != null), [stops]);
   const stopPoints = useMemo(() => validStops.map((s) => [s.lat, s.lng]), [validStops]);
 
   const bgOrders = useMemo(
     () => backgroundOrders.filter(
-      (o) => o.lat && o.lng && !stops.find((s) => s.id === o.id)
+      (o) => o.lat != null && o.lng != null && !stops.find((s) => s.id === o.id)
     ),
     [backgroundOrders, stops]
   );
@@ -68,10 +81,36 @@ export default function RouteMap({ stops = [], backgroundOrders = [] }) {
   );
 
   return (
+    <div className="relative w-full h-full">
+
+      {/* ── Przełącznik trybu koloru — centrum góry, zawsze widoczny ── */}
+      <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[500] flex rounded-lg overflow-hidden shadow-md border border-slate-200 text-[11px] font-semibold">
+        <button
+          type="button"
+          onClick={() => setColorMode('urgency')}
+          className={`px-3 py-1.5 transition-colors ${colorMode === 'urgency' ? 'bg-brand-600 text-white' : 'bg-white/95 text-slate-600 hover:bg-slate-50'}`}
+        >
+          Pilność
+        </button>
+        <button
+          type="button"
+          onClick={() => setColorMode('status')}
+          className={`px-3 py-1.5 transition-colors ${colorMode === 'status' ? 'bg-brand-600 text-white' : 'bg-white/95 text-slate-600 hover:bg-slate-50'}`}
+        >
+          Status
+        </button>
+      </div>
+
+      {/* ── Legenda — prawy dolny róg (nad mobilnym paskiem) ── */}
+      <div className="absolute bottom-[72px] md:bottom-2 right-2 z-[500]">
+        <MapLegend mode={colorMode} urgency={settings.urgency} />
+      </div>
+
     <MapContainer
       center={POLAND_CENTER}
       zoom={6}
       scrollWheelZoom
+      className="route-page-map"
       style={{ height: '100%', width: '100%', minHeight: '300px' }}
     >
       <TileLayer
@@ -79,18 +118,39 @@ export default function RouteMap({ stops = [], backgroundOrders = [] }) {
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
-      {/* tłowe zamówienia */}
+      {/* tłowe zamówienia — klikalne, jeśli przekazano onAddStop */}
       {bgOrders.map((o) => (
         <Marker
           key={o.id}
           position={[o.lat, o.lng]}
-          icon={makeStatusIcon(STATUS_COLOR[o.status] || '#94a3b8')}
-          opacity={0.4}
+          icon={makeStatusIcon(bgColorFor(o))}
+          opacity={onAddStop ? 0.65 : 0.4}
         >
           <Popup>
-            <div style={{ fontSize: '13px' }}>
+            <div style={{ fontSize: '13px', lineHeight: '1.6' }}>
               <strong>{o.title}</strong><br />
-              <span style={{ color: '#64748b' }}>{o.address}, {o.city}</span>
+              {o.firstName || o.lastName ? <>{o.firstName} {o.lastName}<br /></> : null}
+              <span style={{ color: '#64748b' }}>{o.address}, {o.postalCode} {o.city}</span>
+              {o.deliveryDate && (
+                <><br />Dostawa: {new Date(o.deliveryDate).toLocaleDateString('pl-PL')}</>
+              )}
+              {o.phone && (
+                <><br /><a href={`tel:${o.phone.replace(/\s/g,'')}`} style={{color:'#2563eb'}}>📞 {o.phone}</a></>
+              )}
+              {onAddStop && (
+                <div style={{ marginTop: '6px' }}>
+                  <button
+                    onClick={() => onAddStop(o)}
+                    style={{
+                      background: '#2563eb', color: 'white', border: 'none',
+                      borderRadius: '5px', padding: '4px 10px', fontSize: '12px',
+                      cursor: 'pointer', width: '100%',
+                    }}
+                  >
+                    + Dodaj do trasy
+                  </button>
+                </div>
+              )}
             </div>
           </Popup>
         </Marker>
@@ -123,6 +183,20 @@ export default function RouteMap({ stops = [], backgroundOrders = [] }) {
               {stop.phone && (
                 <><br /><a href={`tel:${stop.phone.replace(/\s/g,'')}`} style={{color:'#2563eb'}}>📞 {stop.phone}</a></>
               )}
+              {onRemoveStop && (
+                <div style={{ marginTop: '6px' }}>
+                  <button
+                    onClick={() => onRemoveStop(stop.id)}
+                    style={{
+                      background: '#dc2626', color: 'white', border: 'none',
+                      borderRadius: '5px', padding: '4px 10px', fontSize: '12px',
+                      cursor: 'pointer', width: '100%',
+                    }}
+                  >
+                    Usuń z trasy
+                  </button>
+                </div>
+              )}
             </div>
           </Popup>
         </Marker>
@@ -130,5 +204,6 @@ export default function RouteMap({ stops = [], backgroundOrders = [] }) {
 
       <MapController points={allPoints.length ? allPoints : [POLAND_CENTER]} />
     </MapContainer>
+    </div>
   );
 }

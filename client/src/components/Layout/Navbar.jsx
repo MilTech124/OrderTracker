@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { LogOut, Map, Package, Route, Users, Menu, X, ShieldCheck } from 'lucide-react';
+import { LogOut, Map, Package, Route, Users, Menu, X, ShieldCheck, Settings } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 
 export default function Navbar() {
@@ -16,11 +16,11 @@ export default function Navbar() {
 
   if (!user) return null;
 
-  const activeCls = 'bg-brand-600 text-white';
-  const idleCls   = 'text-slate-700 hover:bg-slate-100';
+  const activeCls = 'bg-brand-600 text-white shadow-glow';
+  const idleCls   = 'text-slate-600 hover:bg-slate-100 hover:text-slate-900';
 
   const linkClass = ({ isActive }) =>
-    `flex items-center gap-2 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${isActive ? activeCls : idleCls}`;
+    `flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 active:scale-[0.97] ${isActive ? activeCls : idleCls}`;
 
   const superadminLinks = (
     <>
@@ -59,25 +59,37 @@ export default function Navbar() {
     </NavLink>
   );
 
+  const settingsLink = (
+    <NavLink to="/settings" className={linkClass} onClick={() => setOpen(false)}>
+      <Settings size={16} /> Ustawienia
+    </NavLink>
+  );
+
   return (
-    <nav className="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-50">
+    <nav className="bg-white/80 backdrop-blur-lg border-b border-slate-200/70 shadow-soft sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4">
         {/* ── Górna belka ───────────────────────────────── */}
-        <div className="flex items-center justify-between h-14 gap-3">
-          <Link to="/" className="font-bold text-base text-brand-700 flex items-center gap-2 shrink-0">
-            <Map size={20} /> Order Tracker
+        <div className="flex items-center justify-between h-16 gap-3">
+          <Link to="/" className="flex items-center gap-2.5 shrink-0 group">
+            <span className="grid place-items-center w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-glow transition-transform group-hover:scale-105">
+              <Map size={18} />
+            </span>
+            <span className="font-extrabold text-base bg-gradient-to-r from-brand-700 to-brand-500 bg-clip-text text-transparent">
+              Order Tracker
+            </span>
           </Link>
 
           {/* Desktop: linki nawigacji */}
           <div className="hidden md:flex items-center gap-1 flex-1">
             {user.role === 'superadmin' ? superadminLinks : user.role === 'admin' ? adminLinks : userLinks}
+            {settingsLink}
           </div>
 
           {/* Desktop: email + wyloguj */}
           <div className="hidden md:flex items-center gap-3 shrink-0">
             <span className="text-xs text-slate-500 max-w-[160px] truncate">
               {user.email}
-              <span className="ml-1 badge bg-slate-200 text-slate-600">{user.role}</span>
+              <span className="ml-1 badge bg-brand-50 text-brand-700 ring-brand-600/20">{user.role}</span>
             </span>
             <button onClick={handleLogout} className="btn btn-secondary text-sm py-1.5">
               <LogOut size={15} /> Wyloguj
@@ -86,7 +98,7 @@ export default function Navbar() {
 
           {/* Mobile: hamburger */}
           <button
-            className="md:hidden p-2 rounded-md text-slate-600 hover:bg-slate-100"
+            className="md:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100 transition-colors active:scale-95"
             onClick={() => setOpen((v) => !v)}
             aria-label="Menu"
           >
@@ -98,6 +110,7 @@ export default function Navbar() {
         {open && (
           <div className="md:hidden pb-3 space-y-1 border-t border-slate-100 pt-2">
             {user.role === 'superadmin' ? superadminLinks : user.role === 'admin' ? adminLinks : userLinks}
+            {settingsLink}
 
             <div className="pt-2 border-t border-slate-100 mt-2 flex items-center justify-between">
               <span className="text-xs text-slate-500 truncate max-w-[200px]">

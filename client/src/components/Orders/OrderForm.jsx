@@ -315,6 +315,17 @@ export default function OrderForm({ initial, onSaved, onCancel }) {
             ))}
           </select>
         </div>
+        <div>
+          <label className="label">Kwota (PLN)</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            className="input"
+            placeholder="np. 250.00"
+            {...register('amount', { valueAsNumber: true })}
+          />
+        </div>
       </div>
 
       <div>

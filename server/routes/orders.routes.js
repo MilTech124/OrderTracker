@@ -30,6 +30,7 @@ function serializeOrder(o) {
     country: obj.country || 'pl',
     deliveryDate: obj.deliveryDate,
     details: obj.details,
+    amount: obj.amount ?? null,
     status: obj.status,
     lat: lat ?? null,
     lng: lng ?? null,
@@ -120,7 +121,7 @@ router.get('/:id', async (req, res, next) => {
 // POST /api/orders
 router.post('/', async (req, res, next) => {
   try {
-    const { title, firstName, lastName, phone, postalCode, city, address, country, deliveryDate, details, lat, lng, status } = req.body;
+    const { title, firstName, lastName, phone, postalCode, city, address, country, deliveryDate, details, amount, lat, lng, status } = req.body;
     if (!title) return res.status(400).json({ error: 'Tytuł jest wymagany' });
 
     const hasCoords = typeof lat === 'number' && typeof lng === 'number' && isFinite(lat) && isFinite(lng);
@@ -131,6 +132,7 @@ router.post('/', async (req, res, next) => {
       country: country || 'pl',
       deliveryDate: deliveryDate ? new Date(deliveryDate) : undefined,
       details,
+      amount: amount != null && amount !== '' ? Number(amount) : null,
       status: status || 'nowe',
       ...(hasCoords ? { location: { type: 'Point', coordinates: [lng, lat] } } : {}),
     };
@@ -151,7 +153,7 @@ router.put('/:id', async (req, res, next) => {
     const order = await Model.findOne({ _id: req.params.id, ...scopeFilter });
     if (!order) return res.status(404).json({ error: 'Nie znaleziono' });
 
-    const fields = ['title', 'firstName', 'lastName', 'phone', 'postalCode', 'city', 'address', 'country', 'details', 'status'];
+    const fields = ['title', 'firstName', 'lastName', 'phone', 'postalCode', 'city', 'address', 'country', 'details', 'amount', 'status'];
     for (const f of fields) if (req.body[f] !== undefined) order[f] = req.body[f];
     if (req.body.deliveryDate !== undefined) {
       order.deliveryDate = req.body.deliveryDate ? new Date(req.body.deliveryDate) : null;

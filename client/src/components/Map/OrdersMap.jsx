@@ -1,8 +1,11 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import { STATUS_COLOR, STATUS_LABEL } from '../../lib/statusColors.js';
+import { getUrgencyColor, getUrgencyLevel, URGENCY_LABEL } from '../../lib/urgency.js';
+import { useSettings } from '../../context/SettingsContext.jsx';
+import MapLegend from './MapLegend.jsx';
 
 export function makeStatusIcon(color) {
   return L.divIcon({
@@ -44,46 +47,83 @@ function MapController({ points }) {
 const POLAND_CENTER = [52.0693, 19.4803];
 
 export default function OrdersMap({ orders, onMarkerClick }) {
-  const mapped = useMemo(() => orders.filter((o) => o.lat && o.lng), [orders]);
+  const { settings } = useSettings();
+  const [colorMode, setColorMode] = useState(settings.colorMode);
+
+  // Gdy zmieni się domyślny tryb w ustawieniach — podążaj za nim.
+  useEffect(() => { setColorMode(settings.colorMode); }, [settings.colorMode]);
+
+  const mapped = useMemo(() => orders.filter((o) => o.lat != null && o.lng != null), [orders]);
   const points = useMemo(() => mapped.map((o) => [o.lat, o.lng]), [mapped]);
 
+  function colorFor(o) {
+    return colorMode === 'urgency'
+      ? getUrgencyColor(o.deliveryDate, settings.urgency)
+      : STATUS_COLOR[o.status] || '#3b82f6';
+  }
+
   return (
-    <MapContainer
-      center={POLAND_CENTER}
-      zoom={6}
-      scrollWheelZoom
-      style={{ height: '100%', width: '100%', minHeight: '300px' }}
-    >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      <MarkerClusterGroup chunkedLoading>
-        {mapped.map((o) => (
-          <Marker
-            key={o.id}
-            position={[o.lat, o.lng]}
-            icon={makeStatusIcon(STATUS_COLOR[o.status] || '#3b82f6')}
-            eventHandlers={onMarkerClick ? { click: () => onMarkerClick(o) } : undefined}
-          >
-            <Popup>
-              <div style={{ fontSize: '13px', lineHeight: '1.5' }}>
-                <strong>{o.title}</strong><br />
-                {o.firstName} {o.lastName}<br />
-                <span style={{ color: '#64748b' }}>{o.address}, {o.postalCode} {o.city}</span><br />
-                Status: <strong>{STATUS_LABEL[o.status]}</strong>
-                {o.deliveryDate && (
-                  <><br />Dostawa: {new Date(o.deliveryDate).toLocaleDateString('pl-PL')}</>
-                )}
-                {o.phone && (
-                  <><br /><a href={`tel:${o.phone.replace(/\s/g,'')}`} style={{color:'#2563eb'}}>📞 {o.phone}</a></>
-                )}
-              </div>
-            </Popup>
-          </Marker>
-        ))}
-      </MarkerClusterGroup>
-      <MapController points={points} />
-    </MapContainer>
+    <div className="relative w-full h-full">
+      {/* Przełącznik trybu koloru */}
+      <div className="absolute top-2 right-2 z-[500] flex rounded-md overflow-hidden shadow-md border border-slate-200 text-[11px] font-medium">
+        <button
+          type="button"
+          onClick={() => setColorMode('urgency')}
+          className={`px-2.5 py-1.5 transition-colors ${colorMode === 'urgency' ? 'bg-brand-600 text-white' : 'bg-white/95 text-slate-600 hover:bg-slate-50'}`}
+        >
+          Pilność
+        </button>
+        <button
+          type="button"
+          onClick={() => setColorMode('status')}
+          className={`px-2.5 py-1.5 transition-colors ${colorMode === 'status' ? 'bg-brand-600 text-white' : 'bg-white/95 text-slate-600 hover:bg-slate-50'}`}
+        >
+          Status
+        </button>
+      </div>
+
+      <MapLegend mode={colorMode} urgency={settings.urgency} />
+
+      <MapContainer
+        center={POLAND_CENTER}
+        zoom={6}
+        scrollWheelZoom
+        style={{ height: '100%', width: '100%', minHeight: '300px' }}
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        <MarkerClusterGroup chunkedLoading>
+          {mapped.map((o) => (
+            <Marker
+              key={o.id}
+              position={[o.lat, o.lng]}
+              icon={makeStatusIcon(colorFor(o))}
+              eventHandlers={onMarkerClick ? { click: () => onMarkerClick(o) } : undefined}
+            >
+              <Popup>
+                <div style={{ fontSize: '13px', lineHeight: '1.5' }}>
+                  <strong>{o.title}</strong><br />
+                  {o.firstName} {o.lastName}<br />
+                  <span style={{ color: '#64748b' }}>{o.address}, {o.postalCode} {o.city}</span><br />
+                  Status: <strong>{STATUS_LABEL[o.status]}</strong>
+                  {o.deliveryDate && (
+                    <>
+                      <br />Dostawa: {new Date(o.deliveryDate).toLocaleDateString('pl-PL')}
+                      <br />Pilność: <strong>{URGENCY_LABEL[getUrgencyLevel(o.deliveryDate, settings.urgency)]}</strong>
+                    </>
+                  )}
+                  {o.phone && (
+                    <><br /><a href={`tel:${o.phone.replace(/\s/g,'')}`} style={{color:'#2563eb'}}>📞 {o.phone}</a></>
+                  )}
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+        </MarkerClusterGroup>
+        <MapController points={points} />
+      </MapContainer>
+    </div>
   );
 }

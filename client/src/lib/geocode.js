@@ -8,24 +8,59 @@
  *  4. Strukturalne: city
  *  5. Wolne zapytanie: pełny adres + nazwa kraju
  *  6. Wolne zapytanie: samo miasto + nazwa kraju
+ *
+ * Zgodność z polityką Nominatim:
+ *  - GLOBALNA kolejka: maks. 1 żądanie / ~1,1 s (też pomiędzy adresami w imporcie).
+ *  - Ponawianie z odczekaniem przy HTTP 429/503.
+ *  - Cache wyników w pamięci — ten sam adres nie jest odpytywany dwa razy.
  */
 
 import { countryName, DEFAULT_COUNTRY } from './countries.js';
 
 const NOMINATIM = 'https://nominatim.openstreetmap.org/search';
+const MIN_INTERVAL = 1100; // ms — bezpieczny margines ponad limit 1 req/s
 
-async function nominatimFetch(params) {
+// ── Globalny throttle ───────────────────────────────────────────────────────
+// Łańcuch obietnic gwarantuje, że WSZYSTKIE żądania do Nominatim (z formularza
+// i z importu) są od siebie oddalone o >= MIN_INTERVAL, niezależnie od tego ile
+// miejsc woła geocodeAddress równolegle.
+let lastRequestAt = 0;
+let queue = Promise.resolve();
+
+function schedule(task) {
+  const run = queue.then(async () => {
+    const wait = lastRequestAt + MIN_INTERVAL - Date.now();
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    lastRequestAt = Date.now();
+    return task();
+  });
+  // utrzymuj łańcuch nawet gdy zadanie rzuci błędem
+  queue = run.then(() => {}, () => {});
+  return run;
+}
+
+// ── Pojedyncze żądanie z ponawianiem ────────────────────────────────────────
+async function nominatimFetch(params, { retries = 2 } = {}) {
   const qs = new URLSearchParams({
     format: 'json',
     limit: '1',
     'accept-language': 'pl',
     ...params,
   });
-  const res = await fetch(`${NOMINATIM}?${qs}`, {
-    headers: { 'Accept-Language': 'pl,en;q=0.9' },
-  });
-  if (!res.ok) throw new Error(`Nominatim HTTP ${res.status}`);
-  return res.json();
+
+  for (let attempt = 0; ; attempt++) {
+    const res = await schedule(() =>
+      fetch(`${NOMINATIM}?${qs}`, { headers: { 'Accept-Language': 'pl,en;q=0.9' } })
+    );
+    if (res.ok) return res.json();
+
+    // Przeciążenie / limit — odczekaj i ponów (backoff: 1,5 s, 3 s, …)
+    if ((res.status === 429 || res.status === 503) && attempt < retries) {
+      await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+      continue;
+    }
+    throw new Error(`Nominatim HTTP ${res.status}`);
+  }
 }
 
 function parseResult(data) {
@@ -37,6 +72,12 @@ function parseResult(data) {
   };
 }
 
+// ── Cache wyników (na czas życia karty) ─────────────────────────────────────
+// Wartość: obiekt {lat,lng,displayName} gdy znaleziono, null gdy serwer
+// jednoznacznie nic nie zwrócił. Błędów sieci/HTTP NIE cache'ujemy (mogą być
+// chwilowe), żeby nie zatruć pamięci wynikiem "nie znaleziono".
+const cache = new Map();
+
 export async function geocodeAddress({ address, city, postalCode, country = DEFAULT_COUNTRY }) {
   const street = address?.trim() || '';
   const cityTrim = city?.trim() || '';
@@ -46,6 +87,13 @@ export async function geocodeAddress({ address, city, postalCode, country = DEFA
 
   if (!cityTrim && !street && !postal) {
     throw new Error('Podaj przynajmniej miasto lub adres.');
+  }
+
+  const cacheKey = [cc, postal, cityTrim, street].join('|').toLowerCase();
+  if (cache.has(cacheKey)) {
+    const cached = cache.get(cacheKey);
+    if (cached) return cached;
+    throw new Error('Nie znaleziono adresu. Spróbuj poprawić adres lub wskaż lokalizację na mapie.');
   }
 
   const attempts = [];
@@ -82,18 +130,25 @@ export async function geocodeAddress({ address, city, postalCode, country = DEFA
   }
 
   let lastError = 'Nie znaleziono adresu.';
+  let hadError = false;
 
   for (const params of attempts) {
     try {
       const data = await nominatimFetch(params);
       const result = parseResult(data);
-      if (result) return result;
+      if (result) {
+        cache.set(cacheKey, result);
+        return result;
+      }
     } catch (err) {
+      hadError = true;
       lastError = err.message;
     }
-    // Przerwa między requestami (polityka Nominatim — max 1 req/sek)
-    await new Promise((r) => setTimeout(r, 300));
+    // Odstęp między próbami zapewnia globalny throttle (schedule) — bez ręcznego sleepu.
   }
+
+  // Zapamiętaj "nie znaleziono" tylko gdy serwer realnie odpowiadał (bez błędów sieci).
+  if (!hadError) cache.set(cacheKey, null);
 
   throw new Error(`${lastError} Spróbuj poprawić adres lub wskaż lokalizację na mapie.`);
 }

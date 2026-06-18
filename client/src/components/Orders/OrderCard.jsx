@@ -1,9 +1,9 @@
-import { Edit, Trash2, ChevronUp, Phone } from 'lucide-react';
+import { Edit, Trash2, ChevronUp, Phone, CalendarDays, Banknote } from 'lucide-react';
 import { STATUS_LABEL, STATUS_LIST } from '../../lib/statusColors.js';
 
 export default function OrderCard({ order, isEditing, onEdit, onDelete, onStatusChange }) {
   return (
-    <div className={`card p-3 md:p-4 flex flex-col gap-2 transition-all ${isEditing ? 'ring-2 ring-brand-500 shadow-md' : ''}`}>
+    <div className={`card p-3.5 md:p-4 flex flex-col gap-2.5 transition-all duration-200 ${isEditing ? 'ring-2 ring-brand-500 shadow-card-hover' : 'hover:shadow-card-hover hover:-translate-y-0.5'}`}>
 
       {/* Nagłówek */}
       <div className="flex items-start justify-between gap-2">
@@ -21,8 +21,15 @@ export default function OrderCard({ order, isEditing, onEdit, onDelete, onStatus
 
       <div className="flex flex-wrap items-center gap-3">
         {order.deliveryDate && (
-          <p className="text-xs text-slate-500">
-            📅 {new Date(order.deliveryDate).toLocaleDateString('pl-PL')}
+          <p className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 tabular-nums">
+            <CalendarDays size={13} className="text-slate-400" />
+            {new Date(order.deliveryDate).toLocaleDateString('pl-PL')}
+          </p>
+        )}
+        {order.amount != null && !isNaN(order.amount) && (
+          <p className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 tabular-nums">
+            <Banknote size={13} className="text-slate-400" />
+            {Number(order.amount).toLocaleString('pl-PL', { style: 'currency', currency: 'PLN' })}
           </p>
         )}
         {order.phone && (

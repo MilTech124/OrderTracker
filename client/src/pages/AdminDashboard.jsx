@@ -4,9 +4,14 @@ import { api } from '../lib/api.js';
 import OrdersMap from '../components/Map/OrdersMap.jsx';
 import OrderForm from '../components/Orders/OrderForm.jsx';
 import OrderCard from '../components/Orders/OrderCard.jsx';
+import OrderStats from '../components/Orders/OrderStats.jsx';
+import ImportExport from '../components/Orders/ImportExport.jsx';
 import { STATUS_LABEL, STATUS_LIST } from '../lib/statusColors.js';
+import { useSettings } from '../context/SettingsContext.jsx';
+import { getUrgencyLevel, URGENCY_LABEL, URGENCY_LEVELS } from '../lib/urgency.js';
 
 export default function AdminDashboard() {
+  const { settings } = useSettings();
   const [orders, setOrders] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,6 +20,7 @@ export default function AdminDashboard() {
   const [filterDate, setFilterDate] = useState('');
   const [filterCity, setFilterCity] = useState('');
   const [filterName, setFilterName] = useState('');
+  const [filterUrgency, setFilterUrgency] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [showNewForm, setShowNewForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -48,7 +54,13 @@ export default function AdminDashboard() {
     return m;
   }, [users]);
 
-  const activeFilters = [filterUser, filterStatus, filterDate, filterCity, filterName].filter(Boolean).length;
+  // Pilność liczona z daty → filtrujemy po stronie klienta (bez round-tripu do serwera).
+  const visibleOrders = useMemo(() => {
+    if (!filterUrgency) return orders;
+    return orders.filter((o) => getUrgencyLevel(o.deliveryDate, settings.urgency) === filterUrgency);
+  }, [orders, filterUrgency, settings.urgency]);
+
+  const activeFilters = [filterUser, filterStatus, filterDate, filterCity, filterName, filterUrgency].filter(Boolean).length;
 
   async function handleDelete(order) {
     if (!confirm(`Usunąć zamówienie „${order.title}"?`)) return;
@@ -77,7 +89,7 @@ export default function AdminDashboard() {
 
       {/* ── Nagłówek ── */}
       <div className="flex items-center justify-between mb-3 gap-2">
-        <h1 className="text-xl md:text-2xl font-bold">Wszystkie zamówienia</h1>
+        <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">Wszystkie zamówienia</h1>
         <div className="flex items-center gap-2">
           {/* Filtry toggle (mobile) */}
           <button
@@ -92,6 +104,7 @@ export default function AdminDashboard() {
               </span>
             )}
           </button>
+          <ImportExport orders={visibleOrders} onImported={load} />
           <button
             onClick={() => { setShowNewForm(true); setEditingId(null); }}
             className="btn btn-primary text-sm py-2"
@@ -127,6 +140,15 @@ export default function AdminDashboard() {
             <input type="date" className="input" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} />
           </div>
           <div>
+            <label className="label">Pilność</label>
+            <select className="input" value={filterUrgency} onChange={(e) => setFilterUrgency(e.target.value)}>
+              <option value="">Dowolna</option>
+              {URGENCY_LEVELS.map((u) => (
+                <option key={u} value={u}>{URGENCY_LABEL[u]}</option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label className="label">Miejscowość</label>
             <input
               type="text"
@@ -149,7 +171,7 @@ export default function AdminDashboard() {
           {activeFilters > 0 && (
             <div className="col-span-2 sm:col-span-3">
               <button
-                onClick={() => { setFilterUser(''); setFilterStatus(''); setFilterDate(''); setFilterCity(''); setFilterName(''); }}
+                onClick={() => { setFilterUser(''); setFilterStatus(''); setFilterDate(''); setFilterCity(''); setFilterName(''); setFilterUrgency(''); }}
                 className="text-xs text-red-600 hover:underline"
               >
                 Wyczyść filtry
@@ -159,6 +181,9 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* ── Statystyki ── */}
+      <OrderStats orders={visibleOrders} />
+
       {/* ── Przełącznik Lista/Mapa (tylko mobile) ── */}
       <div className="flex md:hidden mb-3 rounded-lg overflow-hidden border border-slate-200">
         <button
@@ -167,7 +192,7 @@ export default function AdminDashboard() {
             mobileTab === 'list' ? 'bg-brand-600 text-white' : 'bg-white text-slate-600'
           }`}
         >
-          <List size={16} /> Lista ({orders.length})
+          <List size={16} /> Lista ({visibleOrders.length})
         </button>
         <button
           onClick={() => setMobileTab('map')}
@@ -191,10 +216,10 @@ export default function AdminDashboard() {
 
           {loading ? (
             <p className="text-slate-500 text-sm py-4 text-center">Ładowanie…</p>
-          ) : orders.length === 0 ? (
+          ) : visibleOrders.length === 0 ? (
             <p className="text-slate-500 text-sm py-4 text-center">Brak zamówień dla wybranych filtrów.</p>
           ) : (
-            orders.map((o) => (
+            visibleOrders.map((o) => (
               <div key={o.id}>
                 <div className="text-xs text-slate-400 mb-1 px-1">
                   👤 {userById[o.userId]?.fullName || userById[o.userId]?.email || '—'}
@@ -221,7 +246,7 @@ export default function AdminDashboard() {
           className={`card overflow-hidden md:sticky md:top-16 ${mobileTab === 'list' ? 'hidden md:block' : ''}`}
           style={{ height: '75vh' }}
         >
-          <OrdersMap orders={orders} />
+          <OrdersMap orders={visibleOrders} />
         </div>
       </div>
     </div>
