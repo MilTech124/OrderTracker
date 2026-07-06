@@ -6,6 +6,8 @@ const authRoutes = require('./routes/auth.routes');
 const ordersRoutes = require('./routes/orders.routes');
 const usersRoutes = require('./routes/users.routes');
 const companiesRoutes = require('./routes/companies.routes');
+const vehiclesRoutes = require('./routes/vehicles.routes');
+const plannedRoutesRoutes = require('./routes/plannedRoutes.routes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -49,6 +51,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/companies', companiesRoutes);
+app.use('/api/vehicles', vehiclesRoutes);
+app.use('/api/routes', plannedRoutesRoutes);
 
 app.use(errorHandler);
 

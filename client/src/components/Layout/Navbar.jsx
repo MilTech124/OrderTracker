@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { LogOut, Map, Package, Route, Users, Menu, X, ShieldCheck, Settings } from 'lucide-react';
+import { LogOut, Map, Package, Route, Users, Menu, X, ShieldCheck, Settings, ClipboardList } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 
 export default function Navbar() {
@@ -31,7 +31,10 @@ export default function Navbar() {
         <Package size={16} /> Zamówienia
       </NavLink>
       <NavLink to="/admin/routes" className={linkClass} onClick={() => setOpen(false)}>
-        <Route size={16} /> Trasa
+        <Route size={16} /> Planowanie tras
+      </NavLink>
+      <NavLink to="/admin/planned-routes" className={linkClass} onClick={() => setOpen(false)}>
+        <ClipboardList size={16} /> Zaplanowane trasy
       </NavLink>
       <NavLink to="/admin/users" className={linkClass} onClick={() => setOpen(false)}>
         <Users size={16} /> Użytkownicy
@@ -45,7 +48,10 @@ export default function Navbar() {
         <Package size={16} /> Zamówienia
       </NavLink>
       <NavLink to="/admin/routes" className={linkClass} onClick={() => setOpen(false)}>
-        <Route size={16} /> Trasa
+        <Route size={16} /> Planowanie tras
+      </NavLink>
+      <NavLink to="/admin/planned-routes" className={linkClass} onClick={() => setOpen(false)}>
+        <ClipboardList size={16} /> Zaplanowane trasy
       </NavLink>
       <NavLink to="/admin/users" className={linkClass} onClick={() => setOpen(false)}>
         <Users size={16} /> Użytkownicy

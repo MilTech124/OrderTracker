@@ -1,34 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   AlertTriangle, Navigation, Check, Share2, MessageCircle, ClipboardCheck,
-  SlidersHorizontal, X, List,
+  SlidersHorizontal, X, List, Save, CheckCircle2,
   PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen,
 } from 'lucide-react';
 import { api } from '../lib/api.js';
 import RouteMap from '../components/Map/RouteMap.jsx';
 import RouteStopsList from '../components/Route/RouteStopsList.jsx';
+import SaveRouteModal from '../components/Route/SaveRouteModal.jsx';
 import { buildRouteStages, formatAddress } from '../lib/googleMapsLink.js';
-import { STATUS_LABEL, STATUS_LIST } from '../lib/statusColors.js';
-
-function buildShareText(stages, stops) {
-  const total = stops.length;
-  const multiStage = stages.length > 1;
-  let text = `🚚 Trasa dostawy — ${total} ${total === 1 ? 'przystanek' : total < 5 ? 'przystanki' : 'przystanków'}`;
-  if (multiStage) text += ` (${stages.length} etapy)`;
-  text += '\n\n';
-  stages.forEach((stage, idx) => {
-    if (multiStage) text += `📍 Etap ${idx + 1}/${stages.length} (przystanki ${stage.from}–${stage.to}):\n`;
-    stage.stops.forEach((stop, i) => {
-      const num = stage.from + i;
-      const name = [stop.firstName, stop.lastName].filter(Boolean).join(' ');
-      const addr = formatAddress(stop);
-      text += `${num}. ${name ? name + ' — ' : ''}${addr || stop.title}\n`;
-    });
-    text += `\n🗺️ Nawigacja:\n${stage.url}\n`;
-    if (idx < stages.length - 1) text += '\n';
-  });
-  return text.trim();
-}
+import { buildShareText } from '../lib/routeShare.js';
+import { STATUS_LABEL } from '../lib/statusColors.js';
 
 export default function AdminRoutes() {
   const [users, setUsers]   = useState([]);
@@ -36,7 +19,6 @@ export default function AdminRoutes() {
   const [loading, setLoading] = useState(true);
 
   const [filterUser, setFilterUser]         = useState('');
-  const [filterStatus, setFilterStatus]     = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo]     = useState('');
 
@@ -60,13 +42,18 @@ export default function AdminRoutes() {
 
   const [shareStatus, setShareStatus] = useState('idle');
 
+  // ── Zapis trasy ───────────────────────────────────────────────────────────
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [savedRoute, setSavedRoute] = useState(null); // ostatnio zapisana trasa (baner sukcesu)
+
   // ── Data ──────────────────────────────────────────────────────────────────
   async function loadOrders() {
     setLoading(true);
     try {
-      const params = {};
+      // Planowanie pokazuje tylko zamówienia dostępne do zaplanowania ("nowe").
+      // Zapisane w trasie dostają status "w_trasie" i znikają z tej strony.
+      const params = { status: 'nowe' };
       if (filterUser)     params.userId   = filterUser;
-      if (filterStatus)   params.status   = filterStatus;
       if (filterDateFrom) params.dateFrom = filterDateFrom;
       if (filterDateTo)   params.dateTo   = filterDateTo;
       const { data } = await api.get('/orders', { params });
@@ -76,7 +63,17 @@ export default function AdminRoutes() {
     }
   }
   useEffect(() => { api.get('/users').then(r => setUsers(r.data)); }, []);
-  useEffect(() => { loadOrders(); }, [filterUser, filterStatus, filterDateFrom, filterDateTo]);
+  useEffect(() => { loadOrders(); }, [filterUser, filterDateFrom, filterDateTo]);
+
+  function handleRouteSaved(route) {
+    setShowSaveModal(false);
+    setSelectedIds([]);
+    setStopsOrder([]);
+    setSavedRoute(route);
+    setMobileSheet(null);
+    loadOrders();
+    setTimeout(() => setSavedRoute(null), 6000);
+  }
 
   // ── Selection / stops ─────────────────────────────────────────────────────
   const prevStopsLen = useRef(0);
@@ -152,9 +149,9 @@ export default function AdminRoutes() {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
-  const activeFilters = [filterUser, filterStatus, filterDateFrom, filterDateTo].filter(Boolean).length;
+  const activeFilters = [filterUser, filterDateFrom, filterDateTo].filter(Boolean).length;
   function clearFilters() {
-    setFilterUser(''); setFilterStatus(''); setFilterDateFrom(''); setFilterDateTo('');
+    setFilterUser(''); setFilterDateFrom(''); setFilterDateTo('');
   }
 
   // ── Sub-renders ───────────────────────────────────────────────────────────
@@ -166,11 +163,6 @@ export default function AdminRoutes() {
           onChange={e => setFilterUser(e.target.value)}>
           <option value="">Wszyscy użytkownicy</option>
           {users.map(u => <option key={u.id} value={u.id}>{u.fullName || u.email}</option>)}
-        </select>
-        <select className="input text-sm py-2" value={filterStatus}
-          onChange={e => setFilterStatus(e.target.value)}>
-          <option value="">Dowolny status</option>
-          {STATUS_LIST.map(s => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
         </select>
         <div className="grid grid-cols-2 gap-2">
           <input type="date" className="input text-sm py-2" value={filterDateFrom}
@@ -281,16 +273,22 @@ export default function AdminRoutes() {
   function RouteFooter() {
     if (!stops.length) return null;
     return (
-      <div className="p-3 border-t border-slate-200/60 shrink-0 flex gap-2">
-        <button onClick={handleShare} className="btn btn-secondary text-xs py-2 flex-1 justify-center">
-          {shareStatus === 'copied'
-            ? <><ClipboardCheck size={13} className="text-emerald-600" /> Skopiowano</>
-            : <><Share2 size={13} /> Udostępnij</>}
+      <div className="p-3 border-t border-slate-200/60 shrink-0 space-y-2">
+        <button onClick={() => setShowSaveModal(true)}
+          className="btn btn-primary text-sm py-2.5 w-full justify-center">
+          <Save size={15} /> Zapisz trasę
         </button>
-        <button onClick={handleWhatsApp}
-          className="btn text-xs py-2 px-3 bg-[#25D366] hover:bg-[#1ebe5d] text-white border-0">
-          <MessageCircle size={13} /> WA
-        </button>
+        <div className="flex gap-2">
+          <button onClick={handleShare} className="btn btn-secondary text-xs py-2 flex-1 justify-center">
+            {shareStatus === 'copied'
+              ? <><ClipboardCheck size={13} className="text-emerald-600" /> Skopiowano</>
+              : <><Share2 size={13} /> Udostępnij</>}
+          </button>
+          <button onClick={handleWhatsApp}
+            className="btn text-xs py-2 px-3 bg-[#25D366] hover:bg-[#1ebe5d] text-white border-0">
+            <MessageCircle size={13} /> WA
+          </button>
+        </div>
       </div>
     );
   }
@@ -298,6 +296,23 @@ export default function AdminRoutes() {
   // ── RENDER ────────────────────────────────────────────────────────────────
   return (
     <div className="relative overflow-hidden" style={{ height: 'calc(100vh - 64px)' }}>
+
+      {/* ══════════ BANER SUKCESU PO ZAPISIE ══════════ */}
+      {savedRoute && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-2.5 pl-3 pr-2 py-2 rounded-xl bg-emerald-600 text-white shadow-2xl text-sm animate-[fadeIn_.2s_ease-out]">
+          <CheckCircle2 size={17} className="shrink-0" />
+          <span>
+            Trasa <b>„{savedRoute.title}"</b> zapisana
+          </span>
+          <Link to="/admin/planned-routes"
+            className="ml-1 px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 font-semibold transition-colors">
+            Zobacz
+          </Link>
+          <button onClick={() => setSavedRoute(null)} className="p-1 text-white/70 hover:text-white">
+            <X size={15} />
+          </button>
+        </div>
+      )}
 
       {/* ══════════ MAPA FULLSCREEN ══════════ */}
       <div className="absolute inset-0 z-0">
@@ -375,7 +390,7 @@ export default function AdminRoutes() {
             <PanelRightClose size={15} />
           </button>
           <span className="font-bold text-slate-900 flex-1 text-sm">
-            Trasa
+            Nowa trasa
             <span className="ml-1.5 text-slate-400 font-normal">({stops.length} pkt)</span>
           </span>
           {stops.length > 0 && !isMultiStage && (
@@ -505,7 +520,7 @@ export default function AdminRoutes() {
         {/* Header */}
         <div className="flex items-center justify-between px-4 pb-3 border-b border-slate-100 shrink-0">
           <span className="font-bold text-slate-900">
-            Trasa <span className="text-slate-400 font-normal">({stops.length} pkt)</span>
+            Nowa trasa <span className="text-slate-400 font-normal">({stops.length} pkt)</span>
           </span>
           <div className="flex items-center gap-2">
             {stops.length > 0 && (
@@ -585,6 +600,14 @@ export default function AdminRoutes() {
           )}
         </button>
       </div>
+
+      {/* ══════════ MODAL ZAPISU TRASY ══════════ */}
+      <SaveRouteModal
+        open={showSaveModal}
+        stops={stops}
+        onClose={() => setShowSaveModal(false)}
+        onSaved={handleRouteSaved}
+      />
 
     </div>
   );

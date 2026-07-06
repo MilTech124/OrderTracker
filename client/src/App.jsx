@@ -8,6 +8,8 @@ import UserDashboard from './pages/UserDashboard.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import AdminRoutes from './pages/AdminRoutes.jsx';
 import AdminUsers from './pages/AdminUsers.jsx';
+import AdminVehicles from './pages/AdminVehicles.jsx';
+import AdminPlannedRoutes from './pages/AdminPlannedRoutes.jsx';
 import SuperAdminDashboard from './pages/SuperAdminDashboard.jsx';
 import Settings from './pages/Settings.jsx';
 
@@ -64,6 +66,22 @@ export default function App() {
             element={
               <ProtectedRoute minRole="admin">
                 <AdminRoutes />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/planned-routes"
+            element={
+              <ProtectedRoute minRole="admin">
+                <AdminPlannedRoutes />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/vehicles"
+            element={
+              <ProtectedRoute minRole="admin">
+                <AdminVehicles />
               </ProtectedRoute>
             }
           />

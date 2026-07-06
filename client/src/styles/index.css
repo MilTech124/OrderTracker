@@ -113,4 +113,10 @@ button, select, input[type="checkbox"] {
   .badge-w_trasie    { @apply bg-amber-50 text-amber-700 ring-amber-600/20; }
   .badge-dostarczone { @apply bg-emerald-50 text-emerald-700 ring-emerald-600/20; }
   .badge-anulowane   { @apply bg-slate-100 text-slate-500 ring-slate-500/20; }
+
+  /* Statusy zaplanowanych tras */
+  .badge-zaplanowana  { @apply bg-blue-50 text-blue-700 ring-blue-600/20; }
+  .badge-w_realizacji { @apply bg-amber-50 text-amber-700 ring-amber-600/20; }
+  .badge-zakonczona   { @apply bg-emerald-50 text-emerald-700 ring-emerald-600/20; }
+  .badge-anulowana    { @apply bg-slate-100 text-slate-500 ring-slate-500/20; }
 }

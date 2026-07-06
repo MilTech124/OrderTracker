@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { Settings as SettingsIcon, RotateCcw, Check } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Settings as SettingsIcon, RotateCcw, Check, Truck, ChevronRight } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
 import { URGENCY_LABEL } from '../lib/urgency.js';
 
 const COLOR_FIELDS = [
@@ -28,9 +30,11 @@ function PinPreview({ color }) {
 }
 
 export default function Settings() {
+  const { user } = useAuth();
   const { settings, updateSettings, resetSettings } = useSettings();
   const { urgency, colorMode } = settings;
   const [saved, setSaved] = useState(false);
+  const canManageFleet = user?.role === 'admin' || user?.role === 'superadmin';
 
   function flashSaved() {
     setSaved(true);
@@ -144,6 +148,26 @@ export default function Settings() {
         </div>
         <p className="text-xs text-slate-500">Na mapie zawsze możesz przełączyć tryb w prawym górnym rogu.</p>
       </div>
+
+      {/* Zarządzanie firmą — tylko admin/superadmin */}
+      {canManageFleet && (
+        <div className="card p-4 space-y-3">
+          <h2 className="font-semibold">Zarządzanie firmą</h2>
+          <Link
+            to="/admin/vehicles"
+            className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:border-brand-300 hover:bg-brand-50/40 transition-colors"
+          >
+            <span className="grid place-items-center w-9 h-9 rounded-xl bg-brand-50 text-brand-600 shrink-0">
+              <Truck size={17} />
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-slate-800">Pojazdy</p>
+              <p className="text-xs text-slate-500">Zarządzaj flotą pojazdów firmy</p>
+            </div>
+            <ChevronRight size={16} className="text-slate-400 shrink-0" />
+          </Link>
+        </div>
+      )}
 
       <button
         onClick={() => { resetSettings(); flashSaved(); }}

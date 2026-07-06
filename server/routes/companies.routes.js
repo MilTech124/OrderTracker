@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const Company = require('../models/Company');
 const User = require('../models/User');
 const { getOrderModel, clearModelCache } = require('../lib/getOrderModel');
+const { getRouteModel, clearRouteModelCache } = require('../lib/getRouteModel');
 const { authRequired, requireMinRole } = require('../middleware/auth');
 
 const router = express.Router();
@@ -65,6 +66,7 @@ router.put('/:id', async (req, res, next) => {
     if (!company) return res.status(404).json({ error: 'Nie znaleziono firmy' });
     // Wyczyść cache — nowa nazwa = nowy slug = nowa kolekcja
     clearModelCache(req.params.id);
+    clearRouteModelCache(req.params.id);
     res.json({ id: company._id, name: company.name, createdAt: company.createdAt });
   } catch (err) {
     if (err.code === 11000) return res.status(409).json({ error: 'Firma o tej nazwie już istnieje' });
@@ -78,22 +80,26 @@ router.delete('/:id', async (req, res, next) => {
     const company = await Company.findById(req.params.id);
     if (!company) return res.status(404).json({ error: 'Nie znaleziono firmy' });
 
-    // Pobierz model przed usunięciem firmy (potrzebujemy nazwy do kolekcji)
+    // Pobierz modele przed usunięciem firmy (potrzebujemy nazwy do kolekcji)
     const OrderModel = await getOrderModel(req.params.id);
+    const RouteModel = await getRouteModel(req.params.id);
 
     await Company.findByIdAndDelete(req.params.id);
     await User.updateMany({ companyId: req.params.id }, { companyId: null });
 
-    // Usuń kolekcję zamówień tej firmy z MongoDB
-    try {
-      await OrderModel.collection.drop();
-    } catch (e) {
-      // Kolekcja może nie istnieć — ignoruj błąd
-      if (e.codeName !== 'NamespaceNotFound') console.warn('Nie można usunąć kolekcji:', e.message);
+    // Usuń kolekcje zamówień i tras tej firmy z MongoDB
+    for (const Model of [OrderModel, RouteModel]) {
+      try {
+        await Model.collection.drop();
+      } catch (e) {
+        // Kolekcja może nie istnieć — ignoruj błąd
+        if (e.codeName !== 'NamespaceNotFound') console.warn('Nie można usunąć kolekcji:', e.message);
+      }
     }
 
-    // Wyczyść cache modelu
+    // Wyczyść cache modeli
     clearModelCache(req.params.id);
+    clearRouteModelCache(req.params.id);
 
     res.json({ ok: true });
   } catch (err) {
