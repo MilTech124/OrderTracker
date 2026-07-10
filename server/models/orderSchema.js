@@ -20,7 +20,7 @@ const orderSchema = new mongoose.Schema(
     amount: { type: Number, default: null },
     status: {
       type: String,
-      enum: ['nowe', 'w_trasie', 'dostarczone', 'anulowane'],
+      enum: ['nowe', 'w_trakcie', 'w_trasie', 'dostarczone', 'anulowane'],
       default: 'nowe',
     },
     location: {

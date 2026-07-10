@@ -175,7 +175,7 @@ router.put('/:id', async (req, res, next) => {
 router.patch('/:id/status', async (req, res, next) => {
   try {
     const { status } = req.body;
-    if (!['nowe', 'w_trasie', 'dostarczone', 'anulowane'].includes(status)) {
+    if (!['nowe', 'w_trakcie', 'w_trasie', 'dostarczone', 'anulowane'].includes(status)) {
       return res.status(400).json({ error: 'Nieprawidłowy status' });
     }
     const Model = await getOrderModel(req.user.companyId);

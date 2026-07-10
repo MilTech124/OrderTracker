@@ -109,7 +109,7 @@ async function seed() {
           country: addr.country || 'pl',
           details: 'Dummy zamówienie do testów',
           amount: Math.floor(Math.random() * 1000) + 100,
-          status: ['nowe', 'w_trasie', 'dostarczone', 'anulowane'][Math.floor(Math.random() * 4)],
+          status: ['nowe', 'w_trakcie', 'w_trasie', 'dostarczone', 'anulowane'][Math.floor(Math.random() * 5)],
           deliveryDate: new Date(Date.now() + Math.random() * 7 * 24 * 60 * 60 * 1000),
           location: {
             type: 'Point',
