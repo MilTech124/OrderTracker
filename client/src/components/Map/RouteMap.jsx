@@ -32,47 +32,6 @@ function makeNumberIcon(index, total) {
   });
 }
 
-function formatClientName(order) {
-  return [order.firstName, order.lastName].filter(Boolean).join(' ');
-}
-
-function formatAmount(amount) {
-  if (amount == null || Number.isNaN(Number(amount))) return '';
-  return Number(amount).toLocaleString('pl-PL', { style: 'currency', currency: 'PLN' });
-}
-
-function ClientInfoDetails({ order }) {
-  const clientName = formatClientName(order);
-  const amount = formatAmount(order.amount);
-
-  return (
-    <details style={{ marginTop: '8px' }}>
-      <summary style={{ cursor: 'pointer', color: '#2563eb', fontWeight: 600 }}>
-        Rozwiń info klienta
-      </summary>
-      <div style={{
-        marginTop: '6px',
-        paddingTop: '6px',
-        borderTop: '1px solid #e2e8f0',
-        color: '#334155',
-      }}>
-        {clientName && <><strong>Klient:</strong> {clientName}<br /></>}
-        {order.phone && (
-          <>
-            <strong>Telefon:</strong>{' '}
-            <a href={`tel:${order.phone.replace(/\s/g, '')}`} style={{ color: '#2563eb' }}>{order.phone}</a><br />
-          </>
-        )}
-        <strong>Adres:</strong> {[order.address, order.postalCode, order.city].filter(Boolean).join(', ') || 'brak'}<br />
-        <strong>Status:</strong> {STATUS_LABEL[order.status] || order.status || 'brak'}<br />
-        {order.deliveryDate && <><strong>Dostawa:</strong> {new Date(order.deliveryDate).toLocaleDateString('pl-PL')}<br /></>}
-        {amount && <><strong>Kwota:</strong> {amount}<br /></>}
-        {order.details && <><strong>Szczegóły:</strong> {order.details}</>}
-      </div>
-    </details>
-  );
-}
-
 function MapController({ points }) {
   const map = useMap();
 
@@ -178,7 +137,9 @@ export default function RouteMap({ stops = [], backgroundOrders = [], onAddStop,
               {o.phone && (
                 <><br /><a href={`tel:${o.phone.replace(/\s/g,'')}`} style={{color:'#2563eb'}}>📞 {o.phone}</a></>
               )}
-              <ClientInfoDetails order={o} />
+              {o.details && (
+                <><br /><span style={{ color: '#334155' }}><strong>Szczegóły:</strong> {o.details}</span></>
+              )}
               {onAddStop && (
                 <div style={{ marginTop: '6px' }}>
                   <button
@@ -225,7 +186,9 @@ export default function RouteMap({ stops = [], backgroundOrders = [], onAddStop,
               {stop.phone && (
                 <><br /><a href={`tel:${stop.phone.replace(/\s/g,'')}`} style={{color:'#2563eb'}}>📞 {stop.phone}</a></>
               )}
-              <ClientInfoDetails order={stop} />
+              {stop.details && (
+                <><br /><span style={{ color: '#334155' }}><strong>Szczegóły:</strong> {stop.details}</span></>
+              )}
               {onRemoveStop && (
                 <div style={{ marginTop: '6px' }}>
                   <button
