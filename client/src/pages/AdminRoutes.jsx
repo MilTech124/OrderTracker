@@ -4,6 +4,7 @@ import {
   AlertTriangle, Navigation, Check, Share2, MessageCircle, ClipboardCheck,
   SlidersHorizontal, X, List, Save, CheckCircle2,
   PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen,
+  Search,
 } from 'lucide-react';
 import { api } from '../lib/api.js';
 import RouteMap from '../components/Map/RouteMap.jsx';
@@ -21,6 +22,7 @@ export default function AdminRoutes() {
   const [filterUser, setFilterUser]         = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo]     = useState('');
+  const [filterName, setFilterName]         = useState('');
 
   const [selectedIds, setSelectedIds] = useState([]);
   const [stopsOrder, setStopsOrder]   = useState([]);
@@ -100,6 +102,18 @@ export default function AdminRoutes() {
     const m = {}; orders.forEach(o => { m[o.id] = o; }); return m;
   }, [orders]);
 
+  const filteredOrders = useMemo(() => {
+    const query = filterName.trim().toLocaleLowerCase('pl-PL');
+    if (!query) return orders;
+
+    return orders.filter((order) => [
+      order.title,
+      order.firstName,
+      order.lastName,
+      [order.firstName, order.lastName].filter(Boolean).join(' '),
+    ].some((value) => (value || '').toLocaleLowerCase('pl-PL').includes(query)));
+  }, [orders, filterName]);
+
   const stops = useMemo(
     () => stopsOrder.map(id => orderById[id]).filter(Boolean),
     [stopsOrder, orderById],
@@ -149,9 +163,9 @@ export default function AdminRoutes() {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
-  const activeFilters = [filterUser, filterDateFrom, filterDateTo].filter(Boolean).length;
+  const activeFilters = [filterUser, filterDateFrom, filterDateTo, filterName].filter(Boolean).length;
   function clearFilters() {
-    setFilterUser(''); setFilterDateFrom(''); setFilterDateTo('');
+    setFilterUser(''); setFilterDateFrom(''); setFilterDateTo(''); setFilterName('');
   }
 
   // ── Sub-renders ───────────────────────────────────────────────────────────
@@ -159,6 +173,16 @@ export default function AdminRoutes() {
   function FiltersBlock({ compact = false }) {
     return (
       <div className={`space-y-2 ${compact ? '' : 'p-3 border-b border-slate-200/60 bg-slate-50/70'}`}>
+        <label className="relative block">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <input
+            type="search"
+            className="input text-sm py-2 pl-9"
+            placeholder="Wyszukaj po nazwie"
+            value={filterName}
+            onChange={e => setFilterName(e.target.value)}
+          />
+        </label>
         <select className="input text-sm py-2" value={filterUser}
           onChange={e => setFilterUser(e.target.value)}>
           <option value="">Wszyscy użytkownicy</option>
@@ -181,10 +205,10 @@ export default function AdminRoutes() {
 
   function OrdersList() {
     if (loading) return <p className="text-sm text-slate-500 text-center py-6">Ładowanie…</p>;
-    if (!orders.length) return <p className="text-sm text-slate-500 text-center py-6">Brak zamówień dla filtrów.</p>;
+    if (!filteredOrders.length) return <p className="text-sm text-slate-500 text-center py-6">Brak zamówień dla filtrów.</p>;
     return (
       <ul className="p-2 space-y-1">
-        {orders.map(o => (
+        {filteredOrders.map(o => (
           <li key={o.id} onClick={() => toggleSelect(o.id)}
             className={`flex items-start gap-3 p-2.5 rounded-xl cursor-pointer transition-colors min-h-[52px] ${
               selectedIds.includes(o.id)
@@ -318,7 +342,7 @@ export default function AdminRoutes() {
       <div className="absolute inset-0 z-0">
         <RouteMap
           stops={stops}
-          backgroundOrders={orders}
+          backgroundOrders={filteredOrders}
           onAddStop={o => toggleSelect(o.id)}
           onRemoveStop={removeStop}
         />
@@ -336,7 +360,9 @@ export default function AdminRoutes() {
         <div className="flex items-center gap-2 px-3 py-2.5 border-b border-slate-200/60 shrink-0">
           <span className="font-bold text-slate-900 flex-1 text-sm">
             Zamówienia
-            <span className="ml-1.5 text-slate-400 font-normal">({orders.length})</span>
+            <span className="ml-1.5 text-slate-400 font-normal">
+              ({filteredOrders.length}{filteredOrders.length !== orders.length ? `/${orders.length}` : ''})
+            </span>
           </span>
           <button
             onClick={() => setShowFilters(v => !v)}
@@ -372,7 +398,7 @@ export default function AdminRoutes() {
         >
           <PanelLeftOpen size={15} />
           Zamówienia
-          {orders.length > 0 && <span className="text-slate-400">({orders.length})</span>}
+          {filteredOrders.length > 0 && <span className="text-slate-400">({filteredOrders.length})</span>}
         </button>
       )}
 
@@ -467,7 +493,9 @@ export default function AdminRoutes() {
         {/* Header */}
         <div className="flex items-center justify-between px-4 pb-3 border-b border-slate-100 shrink-0">
           <span className="font-bold text-slate-900">
-            Zamówienia <span className="text-slate-400 font-normal">({orders.length})</span>
+            Zamówienia <span className="text-slate-400 font-normal">
+              ({filteredOrders.length}{filteredOrders.length !== orders.length ? `/${orders.length}` : ''})
+            </span>
           </span>
           <div className="flex items-center gap-1">
             <button
@@ -572,8 +600,8 @@ export default function AdminRoutes() {
         >
           <List size={20} className="text-slate-600" />
           <span className="text-xs font-medium text-slate-700">Zamówienia</span>
-          {orders.length > 0 && (
-            <span className="text-[11px] text-slate-400 tabular-nums">{orders.length}</span>
+          {filteredOrders.length > 0 && (
+            <span className="text-[11px] text-slate-400 tabular-nums">{filteredOrders.length}</span>
           )}
         </button>
 
